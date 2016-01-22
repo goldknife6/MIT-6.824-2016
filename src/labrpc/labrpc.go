@@ -16,6 +16,7 @@ package labrpc
 // net := MakeNetwork() -- holds network, clients, servers.
 // end := net.MakeEnd(endname) -- create a client end-point, to talk to one server.
 // net.AddServer(servername, server) -- adds a named server to network.
+// net.DeleteServer(servername) -- eliminate the named server.
 // net.Connect(endname, servername) -- connect a client to a server.
 // net.Enable(endname, enabled) -- enable/disable a client.
 // net.Reliable(bool) -- false means drop/delay messages
@@ -151,7 +152,7 @@ func (rn *Network) MakeEnd(endname interface{}) *ClientEnd {
 				reliable := rn.reliable
 				rn.mu.Unlock()
 
-				if enabled && servername != nil {
+				if enabled && servername != nil && server != nil {
 					if reliable == false {
 						// short delay
 						ms := (rand.Int() % 27)
@@ -164,10 +165,39 @@ func (rn *Network) MakeEnd(endname interface{}) *ClientEnd {
 						return
 					}
 
-					// execute the request
-					reply := server.dispatch(req)
+					// execute the request (call the RPC handler).
+					// in a separate thread so that we can periodically check
+					// if the server has been killed and the RPC should get a
+					// failure reply.
+					ech := make(chan replyMsg)
+					go func() {
+						r := server.dispatch(req)
+						ech <- r
+					}()
 
-					if reliable == false && (rand.Int()%1000) < 100 {
+					// wait for handler to return,
+					// but stop waiting if DeleteServer() has been called,
+					// and return an error.
+					var reply replyMsg
+					replyOK := false
+					serverDead := false
+					for replyOK == false && serverDead == false {
+						select {
+						case reply = <-ech:
+							replyOK = true
+						case <-time.After(100 * time.Millisecond):
+							rn.mu.Lock()
+							if rn.enabled[endname] == false || rn.servers[servername] != server {
+								serverDead = true
+							}
+							rn.mu.Unlock()
+						}
+					}
+
+					if replyOK == false {
+						// server was killed while we were waiting; return error.
+						req.replyCh <- replyMsg{false, nil}
+					} else if reliable == false && (rand.Int()%1000) < 100 {
 						// drop the reply, return as if timeout
 						req.replyCh <- replyMsg{false, nil}
 					} else {
@@ -200,6 +230,13 @@ func (rn *Network) AddServer(servername interface{}, rs *Server) {
 	defer rn.mu.Unlock()
 
 	rn.servers[servername] = rs
+}
+
+func (rn *Network) DeleteServer(servername interface{}) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	rn.servers[servername] = nil
 }
 
 // connect a ClientEnd to a server.

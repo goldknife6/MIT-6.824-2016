@@ -21,11 +21,13 @@ func MakePersister() *Persister {
 	return &Persister{}
 }
 
-func CopyPersister(old *Persister) *Persister {
-	ps := MakePersister()
-	ps.raftlog = old.raftlog
-	ps.snapshot = old.snapshot
-	return ps
+func (ps *Persister) Copy() *Persister {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	np := MakePersister()
+	np.raftlog = ps.raftlog
+	np.snapshot = ps.snapshot
+	return np
 }
 
 func (ps *Persister) SaveRaftLog(data []byte) {

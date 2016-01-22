@@ -73,9 +73,18 @@ func make_config(t *testing.T, n int, unreliable bool) *config {
 // shut down a Raft server but save its persistent state.
 func (cfg *config) crash1(i int) {
 	cfg.disconnect(i)
+	cfg.net.DeleteServer(i) // disable client connections to the server.
 
 	cfg.mu.Lock()
 	defer cfg.mu.Unlock()
+
+	// a fresh persister, in case old instance ignores isdead()
+	// and continues to update the Persister.
+	// but copy old persister's content so that we always
+	// pass Make() the last persisted state.
+	if cfg.saved[i] != nil {
+		cfg.saved[i] = cfg.saved[i].Copy()
+	}
 
 	rf := cfg.rafts[i]
 	if rf != nil {
@@ -123,7 +132,7 @@ func (cfg *config) start1(i int) {
 	// but copy old persister's content so that we always
 	// pass Make() the last persisted state.
 	if cfg.saved[i] != nil {
-		cfg.saved[i] = CopyPersister(cfg.saved[i])
+		cfg.saved[i] = cfg.saved[i].Copy()
 	} else {
 		cfg.saved[i] = MakePersister()
 	}
@@ -135,7 +144,7 @@ func (cfg *config) start1(i int) {
 	go func() {
 		for m := range applyCh {
 			err_msg := ""
-			if m.Reset {
+			if m.UseSnapshot {
 				// ignore the snapshot
 			} else if v, ok := (m.Command).(int); ok {
 				cfg.mu.Lock()
@@ -391,6 +400,6 @@ func (cfg *config) one(cmd int, expectedServers int) int {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
-	cfg.t.Fatalf("one() failed to reach agreement")
+	cfg.t.Fatalf("one(%v) failed to reach agreement", cmd)
 	return -1
 }

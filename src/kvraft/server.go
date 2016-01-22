@@ -63,7 +63,7 @@ func (kv *RaftKV) isdead() bool {
 // form the fault-tolerant key/value service.
 // me is the index of the current server in servers[].
 //
-func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister, oldpersister *raft.Persister, maxlogsize int) *RaftKV {
+func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister, maxlogsize int) *RaftKV {
 	// call gob.Register on structures you want
 	// Go's RPC library to marshall/unmarshall.
 	gob.Register(Op{})
@@ -74,13 +74,10 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 
 	// Your initialization code here.
 
-	if oldpersister != nil {
-		fmt.Printf("%v restoring snapshot on startup\n", kv.me)
-		kv.restoreSnapshot(oldpersister.ReadSnapshot())
-	}
+	kv.restoreSnapshot(persister.ReadSnapshot())
 
 	kv.applyCh = make(chan raft.ApplyMsg)
-	kv.rf = raft.Make(servers, me, persister, oldpersister, kv.applyCh)
+	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 
 	return kv

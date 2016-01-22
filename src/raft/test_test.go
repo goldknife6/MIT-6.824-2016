@@ -85,7 +85,10 @@ func TestBasicAgree(t *testing.T) {
 			t.Fatalf("some have committed before Start()")
 		}
 
-		cfg.one(index*100, servers)
+		xindex := cfg.one(index*100, servers)
+		if xindex != index {
+			t.Fatalf("got index %v but expected %v", xindex, index)
+		}
 	}
 
 	fmt.Printf("  ... Passed\n")
@@ -93,15 +96,15 @@ func TestBasicAgree(t *testing.T) {
 
 //
 // does Raft discard log entries in response to a call
-// to Snapshotted()?
+// to Done()?
 // does Raft still work after discarding some of log?
 //
-func TestSnapshot1(t *testing.T) {
+func TestDone(t *testing.T) {
 	servers := 3
 	cfg := make_config(t, servers, false)
 	defer cfg.cleanup()
 
-	fmt.Printf("Test: snapshot and log trim ...\n")
+	fmt.Printf("Test: Done() and log trim ...\n")
 
 	n := 100
 	for i := 0; i < n; i++ {
@@ -118,7 +121,7 @@ func TestSnapshot1(t *testing.T) {
 	}
 
 	for i := 0; i < servers; i++ {
-		cfg.rafts[i].Snapshotted(n/2 + i)
+		cfg.rafts[i].Done(n/2 + i)
 		cfg.one(1000+i, servers)
 	}
 
@@ -832,7 +835,3 @@ func TestReliableChurn(t *testing.T) {
 func TestUnreliableChurn(t *testing.T) {
 	internalChurn(t, true)
 }
-
-// implement GC of log / snapshot + recovery from snapshot
-// implement raftkv persistence (maybe only makes sense w/ snapshot)
-// test that GC actually frees memory

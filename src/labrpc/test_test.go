@@ -26,6 +26,13 @@ func (js *JunkServer) Handler2(args int, reply *string) {
 	*reply = "handler2-" + strconv.Itoa(args)
 }
 
+func (js *JunkServer) Handler3(args int, reply *int) {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+	time.Sleep(20 * time.Second)
+	*reply = -args
+}
+
 func TestBasic(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
@@ -372,5 +379,54 @@ func TestRegression1(t *testing.T) {
 	n := rn.GetCount(1000)
 	if n != 1 {
 		t.Fatalf("wrong GetCount() %v, expected %v\n", n, 1)
+	}
+}
+
+//
+// if an RPC is stuck in a server, and the server
+// is killed with DeleteServer(), does the RPC
+// get un-stuck?
+//
+func TestKilled(t *testing.T) {
+	runtime.GOMAXPROCS(4)
+
+	rn := MakeNetwork()
+
+	e := rn.MakeEnd("end1-99")
+
+	js := &JunkServer{}
+	svc := MakeService(js)
+
+	rs := MakeServer()
+	rs.AddService(svc)
+	rn.AddServer("server99", rs)
+
+	rn.Connect("end1-99", "server99")
+	rn.Enable("end1-99", true)
+
+	doneCh := make(chan bool)
+	go func() {
+		reply := 0
+		ok := e.Call("JunkServer.Handler3", 99, &reply)
+		doneCh <- ok
+	}()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	select {
+	case <-doneCh:
+		t.Fatalf("Handler3 should not have returned yet")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	rn.DeleteServer("server99")
+
+	select {
+	case x := <-doneCh:
+		if x != false {
+			t.Fatalf("Handler3 returned successfully despite DeleteServer()")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("Handler3 should return after DeleteServer()")
 	}
 }

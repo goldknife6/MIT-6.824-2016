@@ -220,6 +220,15 @@ func (cfg *config) ShutdownServer(i int) {
 	defer cfg.mu.Unlock()
 
 	cfg.disconnectUnlocked(i, cfg.All())
+	cfg.net.DeleteServer(i) // disable client connections to the server.
+
+	// a fresh persister, in case old instance ignores isdead()
+	// and continues to update the Persister.
+	// but copy old persister's content so that we always
+	// pass Make() the last persisted state.
+	if cfg.saved[i] != nil {
+		cfg.saved[i] = cfg.saved[i].Copy()
+	}
 
 	kv := cfg.kvservers[i]
 	if kv != nil {
@@ -247,24 +256,19 @@ func (cfg *config) StartServer(i int) {
 		cfg.net.Connect(cfg.endnames[i][j], j)
 	}
 
-	var oldps *raft.Persister
-	if cfg.saved[i] != nil {
-		oldps = cfg.saved[i]
-	}
-
 	// a fresh persister, so old instance doesn't overwrite
 	// new instance's persisted state.
 	// give the fresh persister a copy of the old persister's
 	// state, so that the spec is that we pass StartKVServer()
 	// the last persisted state.
-	if oldps != nil {
-		cfg.saved[i] = raft.CopyPersister(oldps)
+	if cfg.saved[i] != nil {
+		cfg.saved[i] = cfg.saved[i].Copy()
 	} else {
 		cfg.saved[i] = raft.MakePersister()
 	}
 	cfg.mu.Unlock()
 
-	cfg.kvservers[i] = StartKVServer(ends, i, cfg.saved[i], oldps, cfg.maxlogsize)
+	cfg.kvservers[i] = StartKVServer(ends, i, cfg.saved[i], cfg.maxlogsize)
 
 	kvsvc := labrpc.MakeService(cfg.kvservers[i])
 	rfsvc := labrpc.MakeService(cfg.kvservers[i].rf)

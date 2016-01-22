@@ -459,7 +459,8 @@ func TestSnapshotRecover(t *testing.T) {
 
 func TestSnapshotRecoverManyClients(t *testing.T) {
 	fmt.Printf("Test: persistence with several clients and snapshots ...\n")
-	GenericTest(t, "snapshotunreliable", 5, false, true, false, 1000)
+	// GenericTest(t, "snapshotunreliable", 5, false, true, false, 1000)
+	GenericTest(t, "snapshotunreliable", 20, false, true, false, 1000)
 }
 
 func TestSnapshotUnreliable(t *testing.T) {

@@ -2,7 +2,7 @@ package raft
 
 //
 // this is an outline of the API that raft must expose to
-// the application (or tester). see comments below for
+// the service (or tester). see comments below for
 // each of these functions for more details.
 //
 // rf = Make(...)
@@ -11,12 +11,12 @@ package raft
 //   start agreement on a new log entry
 // rf.GetState() (term, isLeader)
 //   ask a Raft for its current term, and whether it thinks it is leader
-// rf.Snapshotted(index)
-//   application is done with log entries through index, so
+// rf.Done(index)
+//   service is done with log entries through index, so
 //   Raft should discard as much of its log as possible.
 // ApplyMsg
 //   each time a new entry is committed to the log, each Raft peer
-//   should send an ApplyMsg to the application (or tester)
+//   should send an ApplyMsg to the service (or tester)
 //   in the same server.
 //
 
@@ -30,14 +30,14 @@ import "labrpc"
 
 //
 // as each Raft peer becomes aware that successive log entries are
-// committed, the peer should send an ApplyMsg to the application (or
+// committed, the peer should send an ApplyMsg to the service (or
 // tester) on the same server, via the applyCh passed to Make().
 //
 type ApplyMsg struct {
-	Reset    bool // true -> Snapshot is valid; otherwise Index/Command
-	Index    int
-	Command  interface{}
-	Snapshot []byte
+	Index       int
+	Command     interface{}
+	UseSnapshot bool   // ignore for lab2 ; only used in lab3
+	Snapshot    []byte // ignore for lab2; only used in lab3
 }
 
 //
@@ -95,11 +95,11 @@ func (rf *Raft) readPersist(data []byte) {
 }
 
 
-// the application says it has created a snapshot that has
+// the service says it has created a snapshot that has
 // all info up to and including index. this means the
-// application no longer needs the log through (and including)
+// service no longer needs the log through (and including)
 // that index. Raft should now trim its log as much as possible.
-func (rf *Raft) Snapshotted(index int) {
+func (rf *Raft) Done(index int) {
 	// Your code here.
 }
 
@@ -141,7 +141,7 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 
 
 //
-// the application using Raft (e.g. a k/v server) wants to start
+// the service using Raft (e.g. a k/v server) wants to start
 // agreement on the next command to be appended to Raft's log. if this
 // server isn't the leader, returns false. otherwise start the
 // agreement and return immediately. there is no guarantee that this
@@ -163,12 +163,12 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 }
 
 //
-// the application or tester wants to create a Raft server. the ports
+// the service or tester wants to create a Raft server. the ports
 // of all the Raft servers (including this one) are in peers[]. this
 // server's port is peers[me]. persister is a place for this server to
 // save its persistent state, and also initially holds the most
 // recent saved state, if any. applyCh is a channel on which the
-// tester or application expects Raft to send ApplyMsg messages.
+// tester or service expects Raft to send ApplyMsg messages.
 //
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
