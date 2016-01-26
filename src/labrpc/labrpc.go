@@ -194,7 +194,19 @@ func (rn *Network) MakeEnd(endname interface{}) *ClientEnd {
 						}
 					}
 
-					if replyOK == false {
+					// do not reply if DeleteServer() has been called, i.e.
+					// the server has been killed. this is needed to avoid
+					// situation in which a client gets a positive reply
+					// to an Append, but the server persisted the update
+					// into the old Persister. config.go is careful to call
+					// DeleteServer() before superseding the Persister.
+					rn.mu.Lock()
+					if rn.enabled[endname] == false || rn.servers[servername] != server {
+						serverDead = true
+					}
+					rn.mu.Unlock()
+
+					if replyOK == false || serverDead == true {
 						// server was killed while we were waiting; return error.
 						req.replyCh <- replyMsg{false, nil}
 					} else if reliable == false && (rand.Int()%1000) < 100 {

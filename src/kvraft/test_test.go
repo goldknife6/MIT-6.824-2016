@@ -9,6 +9,10 @@ import "log"
 import "strings"
 import "sync/atomic"
 
+// The tester generously allows solutions to complete elections in one second
+// (much more than the paper's range of timeouts).
+const electionTimeout = 1 * time.Second
+
 func check(t *testing.T, ck *Clerk, key string, value string) {
 	v := ck.Get(key)
 	if v != value {
@@ -57,7 +61,7 @@ func checkClntAppends(t *testing.T, clnt int, v string, count int) {
 		wanted := "x " + strconv.Itoa(clnt) + " " + strconv.Itoa(j) + " y"
 		off := strings.Index(v, wanted)
 		if off < 0 {
-			t.Fatalf("missing element %v in Append result", wanted)
+			t.Fatalf("%v missing element %v in Append result %v", clnt, wanted, v)
 		}
 		off1 := strings.LastIndex(v, wanted)
 		if off1 != off {
@@ -81,7 +85,7 @@ func checkConcurrentAppends(t *testing.T, v string, counts []int) {
 			wanted := "x " + strconv.Itoa(i) + " " + strconv.Itoa(j) + " y"
 			off := strings.Index(v, wanted)
 			if off < 0 {
-				t.Fatalf("missing element %v in Append result", wanted)
+				t.Fatalf("%v missing element %v in Append result %v", i, wanted, v)
 			}
 			off1 := strings.LastIndex(v, wanted)
 			if off1 != off {
@@ -112,9 +116,8 @@ func partitioner(t *testing.T, cfg *config, ch chan bool, done *int32) {
 				}
 			}
 		}
-
 		cfg.partition(pa[0], pa[1])
-		time.Sleep(2*time.Second + time.Duration(rand.Int63()%200)*time.Millisecond)
+		time.Sleep(electionTimeout + time.Duration(rand.Int63()%200)*time.Millisecond)
 	}
 }
 
@@ -123,7 +126,7 @@ func partitioner(t *testing.T, cfg *config, ch chan bool, done *int32) {
 // over, test checks that all appended values are present and in order for a
 // particular key.  If unreliable is set, RPCs may fail.  If crash is set, the
 // servers crash after the period is over and restart.  If partitions is set,
-// the test repartitions the network concurrently with the clients. If
+// the test repartitions the network concurrently with the clients and servers. If
 // maxlogsize is a positive number, the size of the state for Raft (i.e., log
 // size) shouldn't exceed 2*maxlogsize.
 func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash bool, partitions bool, maxlogsize int) {
@@ -141,17 +144,13 @@ func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash 
 		clnts[i] = make(chan int)
 	}
 	for i := 0; i < 3; i++ {
-		fmt.Printf("Iteration %v\n", i)
+		log.Printf("Iteration %v\n", i)
 		atomic.StoreInt32(&done_clients, 0)
 		atomic.StoreInt32(&done_partitioner, 0)
-		if partitions {
-			go partitioner(t, cfg, ch_partitioner, &done_partitioner)
-		}
 		go spawn_clients_and_wait(t, cfg, nclients, func(cli int, myck *Clerk, t *testing.T) {
 			j := 0
 			defer func() {
-				fmt.Printf("client %v: last append %d\n", cli, j)
-				clnts[cli] <- j - 1
+				clnts[cli] <- j
 			}()
 			last := ""
 			key := strconv.Itoa(cli)
@@ -159,10 +158,12 @@ func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash 
 			for atomic.LoadInt32(&done_clients) == 0 {
 				if (rand.Int() % 1000) < 500 {
 					nv := "x " + strconv.Itoa(cli) + " " + strconv.Itoa(j) + " y"
+					// log.Printf("%d: client new append %v\n", cli, nv)
 					myck.Append(key, nv)
 					last = NextValue(last, nv)
 					j++
 				} else {
+					// log.Printf("%d: client new get %v\n", cli, key)
 					v := myck.Get(key)
 					if v != last {
 						log.Fatalf("get wrong value, key %v, wanted:\n%v\n, got\n%v\n", key, last, v)
@@ -171,38 +172,37 @@ func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash 
 			}
 		})
 
+		if partitions {
+			// Allow the clients to perform some operations without interruption
+			time.Sleep(1 * time.Second)
+			go partitioner(t, cfg, ch_partitioner, &done_partitioner)
+		}
 		time.Sleep(5 * time.Second)
 
 		atomic.StoreInt32(&done_clients, 1)     // tell clients to quit
 		atomic.StoreInt32(&done_partitioner, 1) // tell partitioner to quit
 
-		if maxlogsize > 0 {
-			if cfg.LogSize() > 2*maxlogsize {
-				log.Fatal("Raft log isn't been compacted\n")
-			}
-		}
-
 		if partitions {
-			// fmt.Printf("wait for partitioner\n")
+			// log.Printf("wait for partitioner\n")
 			<-ch_partitioner
 			// reconnect network and submit a request. A client may
-			// have submitted a request in a minority.  that request
+			// have submitted a request in a minority.  That request
 			// won't return until that server discovers a new term
 			// has started.
 			cfg.ConnectAll()
 			// wait for a while so that we have a new term
-			time.Sleep(1 * time.Second)
+			time.Sleep(electionTimeout)
 		}
 
 		if crash {
-			fmt.Printf("shutdown servers\n")
+			log.Printf("shutdown servers\n")
 			for i := 0; i < nservers; i++ {
 				cfg.ShutdownServer(i)
 			}
-			// wait for a while for servers to shutdown, since
+			// Wait for a while for servers to shutdown, since
 			// shutdown isn't a real crash and isn't instantaneous
-			time.Sleep(1 * time.Second)
-			fmt.Printf("restart servers\n")
+			time.Sleep(electionTimeout)
+			log.Printf("restart servers\n")
 			// crash and re-start all
 			for i := 0; i < nservers; i++ {
 				cfg.StartServer(i)
@@ -210,19 +210,26 @@ func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash 
 			cfg.ConnectAll()
 		}
 
-		fmt.Printf("wait for clients\n")
+		log.Printf("wait for clients\n")
 		for i := 0; i < nclients; i++ {
-			// fmt.Printf("read from clients %d\n", i)
+			// log.Printf("read from clients %d\n", i)
 			j := <-clnts[i]
-			if j < 10 && !unreliable && !partitions {
-				log.Fatalf("Too little progress?")
+			if j < 10 {
+				log.Printf("Warning: client %d managed to perform only %d put operations in 1 sec?\n", i, j)
 			}
 			key := strconv.Itoa(i)
-			// fmt.Printf("Check %v for client %d\n", j, i)
+			// log.Printf("Check %v for client %d\n", j, i)
 			v := ck.Get(key)
 			checkClntAppends(t, i, v, j)
 		}
 
+		if maxlogsize > 0 {
+			// Check maximum after the servers have processed all client
+			// requests and had time to checkpoint
+			if cfg.LogSize() > 2*maxlogsize {
+				log.Fatal("Raft log isn't been compacted\n")
+			}
+		}
 	}
 
 	fmt.Printf("  ... Passed\n")
@@ -273,8 +280,6 @@ func TestUnreliableOneKey(t *testing.T) {
 	checkConcurrentAppends(t, vx, counts)
 
 	fmt.Printf("  ... Passed\n")
-
-	time.Sleep(1 * time.Second)
 }
 
 // Submit a request in the minority partition and check that the requests
@@ -335,7 +340,7 @@ func TestOnePartition(t *testing.T) {
 	cfg.ConnectClient(ckp2a, cfg.All())
 	cfg.ConnectClient(ckp2b, cfg.All())
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(electionTimeout)
 
 	select {
 	case <-done0:
@@ -353,68 +358,6 @@ func TestOnePartition(t *testing.T) {
 	check(t, ck, "1", "15")
 
 	fmt.Printf("  ... Passed\n")
-}
-
-//
-// if one server falls behind, then rejoins, does it
-// recover by using the InstallSnapshot RPC?
-// also checks that majority discards committed log entries
-// even if minority doesn't respond.
-//
-func TestSnapshotRPC(t *testing.T) {
-	const nservers = 3
-	maxlogsize := 1000
-	cfg := make_config(t, "snapshotrpc", nservers, false, maxlogsize)
-	defer cfg.cleanup()
-
-	ck := cfg.makeClient(cfg.All())
-
-	fmt.Printf("Test: InstallSnapshot RPC ...\n")
-
-	ck.Put("a", "A")
-	check(t, ck, "a", "A")
-
-	// a bunch of puts into the majority partition.
-	cfg.partition([]int{0, 1}, []int{2})
-	{
-		ck1 := cfg.makeClient([]int{0, 1})
-		for i := 0; i < 50; i++ {
-			ck1.Put(strconv.Itoa(i), strconv.Itoa(i))
-		}
-		time.Sleep(500 * time.Millisecond)
-		ck1.Put("b", "B")
-	}
-
-	// check that the majority partition has thrown away
-	// most of its log entries.
-	if cfg.LogSize() > 2*maxlogsize {
-		t.Fatalf("logs were not trimmed")
-	}
-
-	// now make group that requires participation of
-	// lagging server, so that it has to catch up.
-	cfg.partition([]int{0, 2}, []int{1})
-	{
-		ck1 := cfg.makeClient([]int{0, 2})
-		ck1.Put("c", "C")
-		ck1.Put("d", "D")
-		check(t, ck1, "a", "A")
-		check(t, ck1, "b", "B")
-		check(t, ck1, "1", "1")
-		check(t, ck1, "49", "49")
-	}
-
-	// now everybody
-	cfg.partition([]int{0, 1, 2}, []int{})
-
-	ck.Put("e", "E")
-	check(t, ck, "c", "C")
-	check(t, ck, "e", "E")
-	check(t, ck, "1", "1")
-
-	fmt.Printf("  ... Passed\n")
-
-	time.Sleep(1 * time.Second)
 }
 
 func TestManyPartitionsOneClient(t *testing.T) {
@@ -452,6 +395,66 @@ func TestPersistPartitionUnreliable(t *testing.T) {
 	GenericTest(t, "persistpartunreliable", 5, true, true, true, -1)
 }
 
+//
+// if one server falls behind, then rejoins, does it
+// recover by using the InstallSnapshot RPC?
+// also checks that majority discards committed log entries
+// even if minority doesn't respond.
+//
+func TestSnapshotRPC(t *testing.T) {
+	const nservers = 3
+	maxlogsize := 1000
+	cfg := make_config(t, "snapshotrpc", nservers, false, maxlogsize)
+	defer cfg.cleanup()
+
+	ck := cfg.makeClient(cfg.All())
+
+	fmt.Printf("Test: InstallSnapshot RPC ...\n")
+
+	ck.Put("a", "A")
+	check(t, ck, "a", "A")
+
+	// a bunch of puts into the majority partition.
+	cfg.partition([]int{0, 1}, []int{2})
+	{
+		ck1 := cfg.makeClient([]int{0, 1})
+		for i := 0; i < 50; i++ {
+			ck1.Put(strconv.Itoa(i), strconv.Itoa(i))
+		}
+		time.Sleep(electionTimeout)
+		ck1.Put("b", "B")
+	}
+
+	// check that the majority partition has thrown away
+	// most of its log entries.
+	if cfg.LogSize() > 2*maxlogsize {
+		t.Fatalf("logs were not trimmed")
+	}
+
+	// now make group that requires participation of
+	// lagging server, so that it has to catch up.
+	cfg.partition([]int{0, 2}, []int{1})
+	{
+		ck1 := cfg.makeClient([]int{0, 2})
+		ck1.Put("c", "C")
+		ck1.Put("d", "D")
+		check(t, ck1, "a", "A")
+		check(t, ck1, "b", "B")
+		check(t, ck1, "1", "1")
+		check(t, ck1, "49", "49")
+	}
+
+	// now everybody
+	cfg.partition([]int{0, 1, 2}, []int{})
+
+	ck.Put("e", "E")
+	check(t, ck, "c", "C")
+	check(t, ck, "e", "E")
+	check(t, ck, "1", "1")
+
+	fmt.Printf("  ... Passed\n")
+}
+
 func TestSnapshotRecover(t *testing.T) {
 	fmt.Printf("Test: persistence with one client and snapshots ...\n")
 	GenericTest(t, "snapshot", 1, false, true, false, 1000)
@@ -459,7 +462,6 @@ func TestSnapshotRecover(t *testing.T) {
 
 func TestSnapshotRecoverManyClients(t *testing.T) {
 	fmt.Printf("Test: persistence with several clients and snapshots ...\n")
-	// GenericTest(t, "snapshotunreliable", 5, false, true, false, 1000)
 	GenericTest(t, "snapshotunreliable", 20, false, true, false, 1000)
 }
 
@@ -478,6 +480,4 @@ func TestSnapshotUnreliableRecoverConcurrentPartition(t *testing.T) {
 	GenericTest(t, "snapshotunreliableconcurpartitions", 5, true, true, true, 1000)
 }
 
-// Many partitions -- frequence of partitioner?
-// Test that recovery is fast with snapshots  (don't have to replay log from beginning of time)
 // Test that solution avoids sending snapshots (send sending snapshots should be rare)

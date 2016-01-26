@@ -220,7 +220,14 @@ func (cfg *config) ShutdownServer(i int) {
 	defer cfg.mu.Unlock()
 
 	cfg.disconnectUnlocked(i, cfg.All())
-	cfg.net.DeleteServer(i) // disable client connections to the server.
+
+	// disable client connections to the server.
+	// it's important to do this before creating
+	// the new Persister in saved[i], to avoid
+	// the possibility of the server returning a
+	// positive reply to an Append but persisting
+	// the result in the superseded Persister.
+	cfg.net.DeleteServer(i)
 
 	// a fresh persister, in case old instance ignores isdead()
 	// and continues to update the Persister.

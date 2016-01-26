@@ -14,6 +14,10 @@ import "time"
 import "math/rand"
 import "sync/atomic"
 
+// The tester generously allows solutions to complete elections in one second
+// (much more than the paper's range of timeouts).
+const RaftElectionTimeout = 1000 * time.Millisecond
+
 func TestInitialElection(t *testing.T) {
 	servers := 3
 	cfg := make_config(t, servers, false)
@@ -26,7 +30,7 @@ func TestInitialElection(t *testing.T) {
 
 	// does the leader+term stay the same there is no failure?
 	term1 := cfg.checkTerms()
-	time.Sleep(2 * time.Second)
+	time.Sleep(2 * RaftElectionTimeout)
 	term2 := cfg.checkTerms()
 	if term1 != term2 {
 		t.Fatalf("term changed even though there were no failures")
@@ -57,7 +61,7 @@ func TestReElection(t *testing.T) {
 	// be elected.
 	cfg.disconnect(leader2)
 	cfg.disconnect((leader2 + 1) % servers)
-	time.Sleep(2 * time.Second)
+	time.Sleep(2 * RaftElectionTimeout)
 	cfg.checkNoLeader()
 
 	// if a quorum arises, it should elect a leader.
@@ -157,7 +161,7 @@ func TestFailAgree(t *testing.T) {
 	// agree despite one failed server?
 	cfg.one(102, servers-1)
 	cfg.one(103, servers-1)
-	time.Sleep(1 * time.Second)
+	time.Sleep(RaftElectionTimeout)
 	cfg.one(104, servers-1)
 	cfg.one(105, servers-1)
 
@@ -166,7 +170,7 @@ func TestFailAgree(t *testing.T) {
 
 	// agree with full set of servers?
 	cfg.one(106, servers)
-	time.Sleep(1 * time.Second)
+	time.Sleep(RaftElectionTimeout)
 	cfg.one(107, servers)
 
 	fmt.Printf("  ... Passed\n")
@@ -195,7 +199,7 @@ func TestFailNoAgree(t *testing.T) {
 		t.Fatalf("expected index 2, got %v", index)
 	}
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(2 * RaftElectionTimeout)
 
 	n, _ := cfg.nCommitted(index)
 	if n > 0 {
@@ -325,7 +329,7 @@ func TestBackup(t *testing.T) {
 		cfg.rafts[leader1].Start(rand.Int())
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(RaftElectionTimeout / 2)
 
 	cfg.disconnect((leader1 + 0) % servers)
 	cfg.disconnect((leader1 + 1) % servers)
@@ -353,7 +357,7 @@ func TestBackup(t *testing.T) {
 		cfg.rafts[leader2].Start(rand.Int())
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(RaftElectionTimeout / 2)
 
 	// bring original leader back to life,
 	for i := 0; i < servers; i++ {
@@ -414,7 +418,7 @@ func TestCount(t *testing.T) {
 		total2 += cfg.rpcCount(j)
 	}
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(RaftElectionTimeout)
 
 	total3 := 0
 	for j := 0; j < servers; j++ {
@@ -511,7 +515,7 @@ func TestPersist2(t *testing.T) {
 		cfg.connect((leader1 + 1) % servers)
 		cfg.connect((leader1 + 2) % servers)
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(RaftElectionTimeout)
 
 		cfg.start1((leader1 + 3) % servers)
 		cfg.connect((leader1 + 3) % servers)
@@ -558,6 +562,16 @@ func TestPersist3(t *testing.T) {
 	fmt.Printf("  ... Passed\n")
 }
 
+//
+// Test the scenarios described in Figure 8 of the extended Raft paper. Each
+// iteration asks a leader, if there is one, to insert a command in the Raft
+// log.  If there is a leader, that leader will fail quickly with a high
+// probability (perhaps without committing the command), or crash after a while
+// with low probability (most likey committing the command).  If the number of
+// alive servers isn't enough to form a majority, perhaps start a new server.
+// The leader in a new term may try to finish replicating log entries that
+// haven't been committed yet.
+//
 func TestFigure8(t *testing.T) {
 	servers := 5
 	cfg := make_config(t, servers, false)
@@ -580,7 +594,7 @@ func TestFigure8(t *testing.T) {
 		}
 
 		if (rand.Int() % 1000) < 100 {
-			ms := (rand.Int63() % 500)
+			ms := rand.Int63() % (int64(RaftElectionTimeout/time.Millisecond) / 2)
 			time.Sleep(time.Duration(ms) * time.Millisecond)
 		} else {
 			ms := (rand.Int63() % 13)
@@ -655,14 +669,14 @@ func TestFigure8Unreliable(t *testing.T) {
 		}
 
 		if (rand.Int() % 1000) < 100 {
-			ms := (rand.Int63() % 500)
+			ms := rand.Int63() % (int64(RaftElectionTimeout/time.Millisecond) / 2)
 			time.Sleep(time.Duration(ms) * time.Millisecond)
 		} else {
 			ms := (rand.Int63() % 13)
 			time.Sleep(time.Duration(ms) * time.Millisecond)
 		}
 
-		if leader != -1 && (rand.Int()%1000) < 500 {
+		if leader != -1 && (rand.Int()%1000) < int(RaftElectionTimeout/time.Millisecond)/2 {
 			cfg.disconnect(leader)
 			nup -= 1
 		}
@@ -776,10 +790,14 @@ func internalChurn(t *testing.T, unreliable bool) {
 			}
 		}
 
-		time.Sleep(777 * time.Millisecond)
+		// Make crash/restart infrequent enough that the peers can often
+		// keep up, but not so infrequent that everything has settled
+		// down from one change to the next. Pick a value smaller than
+		// the election timeout, but not hugely smaller.
+		time.Sleep((RaftElectionTimeout * 7) / 10)
 	}
 
-	time.Sleep(1500 * time.Millisecond)
+	time.Sleep(RaftElectionTimeout)
 	cfg.setunreliable(false)
 	for i := 0; i < servers; i++ {
 		if cfg.rafts[i] == nil {
@@ -799,7 +817,7 @@ func internalChurn(t *testing.T, unreliable bool) {
 		values = append(values, vv...)
 	}
 
-	time.Sleep(1500 * time.Millisecond)
+	time.Sleep(RaftElectionTimeout)
 
 	lastIndex := cfg.one(rand.Int(), servers)
 
