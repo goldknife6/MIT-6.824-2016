@@ -121,6 +121,105 @@ func (rn *Network) LongDelays(yes bool) {
 	rn.longDelays = yes
 }
 
+func (rn *Network) ReadEndnameInfo(endname interface{}) (bool, interface{}, *Server, bool) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	enabled := rn.enabled[endname]
+	servername := rn.connections[endname]
+	var server *Server
+	if servername != nil {
+		server = rn.servers[servername]
+	}
+	reliable := rn.reliable
+	return enabled, servername, server, reliable
+}
+
+func (rn *Network) IsServerDead(endname interface{}, servername interface{}, server *Server) bool {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	if rn.enabled[endname] == false || rn.servers[servername] != server {
+		return true
+	}
+	return false
+}
+
+func (rn *Network) ProcessReq(req reqMsg, endname interface{}) {
+	enabled, servername, server, reliable := rn.ReadEndnameInfo(endname)
+	if enabled && servername != nil && server != nil {
+		if reliable == false {
+			// short delay
+			ms := (rand.Int() % 27)
+			time.Sleep(time.Duration(ms) * time.Millisecond)
+		}
+
+		if reliable == false && (rand.Int()%1000) < 100 {
+			// drop the request, return as if timeout
+			req.replyCh <- replyMsg{false, nil}
+			return
+		}
+
+		// execute the request (call the RPC handler).
+		// in a separate thread so that we can periodically check
+		// if the server has been killed and the RPC should get a
+		// failure reply.
+		ech := make(chan replyMsg)
+		go func() {
+			r := server.dispatch(req)
+			ech <- r
+		}()
+
+		// wait for handler to return,
+		// but stop waiting if DeleteServer() has been called,
+		// and return an error.
+		var reply replyMsg
+		replyOK := false
+		serverDead := false
+		for replyOK == false && serverDead == false {
+			select {
+			case reply = <-ech:
+				replyOK = true
+			case <-time.After(100 * time.Millisecond):
+				serverDead = rn.IsServerDead(endname, servername, server)
+			}
+		}
+
+		// do not reply if DeleteServer() has been called, i.e.
+		// the server has been killed. this is needed to avoid
+		// situation in which a client gets a positive reply
+		// to an Append, but the server persisted the update
+		// into the old Persister. config.go is careful to call
+		// DeleteServer() before superseding the Persister.
+		serverDead = rn.IsServerDead(endname, servername, server)
+
+		if replyOK == false || serverDead == true {
+			// server was killed while we were waiting; return error.
+			req.replyCh <- replyMsg{false, nil}
+		} else if reliable == false && (rand.Int()%1000) < 100 {
+			// drop the reply, return as if timeout
+			req.replyCh <- replyMsg{false, nil}
+		} else {
+			req.replyCh <- reply
+		}
+	} else {
+		// simulate no reply and eventual timeout.
+		ms := 0
+		if rn.longDelays {
+			// let Raft tests check that leader doesn't send
+			// RPCs synchronously.
+			ms = (rand.Int() % 7000)
+		} else {
+			// many kv tests require the client to try each
+			// server in fairly rapid succession.
+			ms = (rand.Int() % 100)
+		}
+		time.Sleep(time.Duration(ms) * time.Millisecond)
+		req.replyCh <- replyMsg{false, nil}
+	}
+
+}
+
 // create a client end-point.
 // start the thread that listens and delivers.
 func (rn *Network) MakeEnd(endname interface{}) *ClientEnd {
@@ -141,96 +240,7 @@ func (rn *Network) MakeEnd(endname interface{}) *ClientEnd {
 		for xreq := range e.ch {
 			// handle the request in a separate thread to avoid
 			// blocking subsequent RPCs from the same ClientEnd.
-			go func(req reqMsg) {
-				rn.mu.Lock()
-				enabled := rn.enabled[endname]
-				servername := rn.connections[endname]
-				var server *Server
-				if servername != nil {
-					server = rn.servers[servername]
-				}
-				reliable := rn.reliable
-				rn.mu.Unlock()
-
-				if enabled && servername != nil && server != nil {
-					if reliable == false {
-						// short delay
-						ms := (rand.Int() % 27)
-						time.Sleep(time.Duration(ms) * time.Millisecond)
-					}
-
-					if reliable == false && (rand.Int()%1000) < 100 {
-						// drop the request, return as if timeout
-						req.replyCh <- replyMsg{false, nil}
-						return
-					}
-
-					// execute the request (call the RPC handler).
-					// in a separate thread so that we can periodically check
-					// if the server has been killed and the RPC should get a
-					// failure reply.
-					ech := make(chan replyMsg)
-					go func() {
-						r := server.dispatch(req)
-						ech <- r
-					}()
-
-					// wait for handler to return,
-					// but stop waiting if DeleteServer() has been called,
-					// and return an error.
-					var reply replyMsg
-					replyOK := false
-					serverDead := false
-					for replyOK == false && serverDead == false {
-						select {
-						case reply = <-ech:
-							replyOK = true
-						case <-time.After(100 * time.Millisecond):
-							rn.mu.Lock()
-							if rn.enabled[endname] == false || rn.servers[servername] != server {
-								serverDead = true
-							}
-							rn.mu.Unlock()
-						}
-					}
-
-					// do not reply if DeleteServer() has been called, i.e.
-					// the server has been killed. this is needed to avoid
-					// situation in which a client gets a positive reply
-					// to an Append, but the server persisted the update
-					// into the old Persister. config.go is careful to call
-					// DeleteServer() before superseding the Persister.
-					rn.mu.Lock()
-					if rn.enabled[endname] == false || rn.servers[servername] != server {
-						serverDead = true
-					}
-					rn.mu.Unlock()
-
-					if replyOK == false || serverDead == true {
-						// server was killed while we were waiting; return error.
-						req.replyCh <- replyMsg{false, nil}
-					} else if reliable == false && (rand.Int()%1000) < 100 {
-						// drop the reply, return as if timeout
-						req.replyCh <- replyMsg{false, nil}
-					} else {
-						req.replyCh <- reply
-					}
-				} else {
-					// simulate no reply and eventual timeout.
-					ms := 0
-					if rn.longDelays {
-						// let Raft tests check that leader doesn't send
-						// RPCs synchronously.
-						ms = (rand.Int() % 7000)
-					} else {
-						// many kv tests require the client to try each
-						// server in fairly rapid succession.
-						ms = (rand.Int() % 100)
-					}
-					time.Sleep(time.Duration(ms) * time.Millisecond)
-					req.replyCh <- replyMsg{false, nil}
-				}
-			}(xreq)
+			go rn.ProcessReq(xreq, endname)
 		}
 	}()
 

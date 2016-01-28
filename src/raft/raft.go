@@ -11,9 +11,6 @@ package raft
 //   start agreement on a new log entry
 // rf.GetState() (term, isLeader)
 //   ask a Raft for its current term, and whether it thinks it is leader
-// rf.Done(index)
-//   service is done with log entries through index, so
-//   Raft should discard as much of its log as possible.
 // ApplyMsg
 //   each time a new entry is committed to the log, each Raft peer
 //   should send an ApplyMsg to the service (or tester)
@@ -95,13 +92,6 @@ func (rf *Raft) readPersist(data []byte) {
 }
 
 
-// the service says it has created a snapshot that has
-// all info up to and including index. this means the
-// service no longer needs the log through (and including)
-// that index. Raft should now trim its log as much as possible.
-func (rf *Raft) Done(index int) {
-	// Your code here.
-}
 
 
 //
