@@ -98,53 +98,6 @@ func TestBasicAgree(t *testing.T) {
 	fmt.Printf("  ... Passed\n")
 }
 
-//
-// does Raft discard log entries in response to a call
-// to Done()?
-// does Raft still work after discarding some of log?
-//
-func TestDone(t *testing.T) {
-	servers := 3
-	cfg := make_config(t, servers, false)
-	defer cfg.cleanup()
-
-	fmt.Printf("Test: Done() and log trim ...\n")
-
-	n := 100
-	for i := 0; i < n; i++ {
-		cfg.one(i, servers)
-	}
-
-	before := make([]int, servers)
-	for i := 0; i < servers; i++ {
-		before[i] = cfg.saved[i].RaftLogSize() // bytes of persisted state
-		if before[i] < n*8 || before[i] > n*40 {
-			t.Fatalf("server %v uses an unreasonable %v bytes of persist storage",
-				i, before[i])
-		}
-	}
-
-	for i := 0; i < servers; i++ {
-		cfg.rafts[i].Done(n/2 + i)
-		cfg.one(1000+i, servers)
-	}
-
-	after := make([]int, servers)
-	for i := 0; i < servers; i++ {
-		after[i] = cfg.saved[i].RaftLogSize() // bytes of persisted state
-		if after[i] > 9*(before[i]/10) {
-			t.Fatalf("server %v persist state did not shrink enough: %v to %v\n",
-				i, before[i], after[i])
-		}
-	}
-
-	for i := 0; i < 3; i++ {
-		cfg.one(20000+i, servers)
-	}
-
-	fmt.Printf("  ... Passed\n")
-}
-
 func TestFailAgree(t *testing.T) {
 	servers := 3
 	cfg := make_config(t, servers, false)
