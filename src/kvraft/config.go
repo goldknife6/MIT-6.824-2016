@@ -57,7 +57,7 @@ func (cfg *config) cleanup() {
 func (cfg *config) LogSize() int {
 	logsize := 0
 	for i := 0; i < cfg.n; i++ {
-		n := cfg.saved[i].RaftLogSize()
+		n := cfg.saved[i].RaftStateSize()
 		if n > logsize {
 			logsize = n
 		}
@@ -229,8 +229,8 @@ func (cfg *config) ShutdownServer(i int) {
 	// the result in the superseded Persister.
 	cfg.net.DeleteServer(i)
 
-	// a fresh persister, in case old instance ignores isdead()
-	// and continues to update the Persister.
+	// a fresh persister, in case old instance
+	// continues to update the Persister.
 	// but copy old persister's content so that we always
 	// pass Make() the last persisted state.
 	if cfg.saved[i] != nil {

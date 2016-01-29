@@ -12,9 +12,9 @@ package raft
 import "sync"
 
 type Persister struct {
-	mu       sync.Mutex
-	raftlog  []byte
-	snapshot []byte
+	mu        sync.Mutex
+	raftstate []byte
+	snapshot  []byte
 }
 
 func MakePersister() *Persister {
@@ -25,27 +25,27 @@ func (ps *Persister) Copy() *Persister {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	np := MakePersister()
-	np.raftlog = ps.raftlog
+	np.raftstate = ps.raftstate
 	np.snapshot = ps.snapshot
 	return np
 }
 
-func (ps *Persister) SaveRaftLog(data []byte) {
+func (ps *Persister) SaveRaftState(data []byte) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
-	ps.raftlog = data
+	ps.raftstate = data
 }
 
-func (ps *Persister) ReadRaftLog() []byte {
+func (ps *Persister) ReadRaftState() []byte {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
-	return ps.raftlog
+	return ps.raftstate
 }
 
-func (ps *Persister) RaftLogSize() int {
+func (ps *Persister) RaftStateSize() int {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
-	return len(ps.raftlog)
+	return len(ps.raftstate)
 }
 
 func (ps *Persister) SaveSnapshot(snapshot []byte) {

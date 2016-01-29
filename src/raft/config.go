@@ -78,8 +78,8 @@ func (cfg *config) crash1(i int) {
 	cfg.mu.Lock()
 	defer cfg.mu.Unlock()
 
-	// a fresh persister, in case old instance ignores isdead()
-	// and continues to update the Persister.
+	// a fresh persister, in case old instance
+	// continues to update the Persister.
 	// but copy old persister's content so that we always
 	// pass Make() the last persisted state.
 	if cfg.saved[i] != nil {
@@ -95,9 +95,9 @@ func (cfg *config) crash1(i int) {
 	}
 
 	if cfg.saved[i] != nil {
-		raftlog := cfg.saved[i].ReadRaftLog()
+		raftlog := cfg.saved[i].ReadRaftState()
 		cfg.saved[i] = &Persister{}
-		cfg.saved[i].SaveRaftLog(raftlog)
+		cfg.saved[i].SaveRaftState(raftlog)
 	}
 }
 

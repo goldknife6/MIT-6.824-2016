@@ -42,7 +42,6 @@ type ApplyMsg struct {
 //
 type Raft struct {
 	mu        sync.Mutex
-	dead      int32 // for testing
 	peers     []*labrpc.ClientEnd
 	persister *Persister
 	me        int // index into peers[]
@@ -76,7 +75,7 @@ func (rf *Raft) persist() {
 	// e.Encode(rf.xxx)
 	// e.Encode(rf.yyy)
 	// data := w.Bytes()
-	// rf.persister.SaveRaftLog(data)
+	// rf.persister.SaveRaftState(data)
 }
 
 //
@@ -153,6 +152,16 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 }
 
 //
+// the tester calls Kill() when a Raft instance won't
+// be needed again. you are not required to do anything
+// in Kill(), but it might be convenient to (for example)
+// turn off debug output from this instance.
+//
+func (rf *Raft) Kill() {
+	// Your code here, if desired.
+}
+
+//
 // the service or tester wants to create a Raft server. the ports
 // of all the Raft servers (including this one) are in peers[]. this
 // server's port is peers[me]. persister is a place for this server to
@@ -170,7 +179,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// Your initialization code here.
 
 	// initialize from state persisted before a crash
-	rf.readPersist(persister.ReadRaftLog())
+	rf.readPersist(persister.ReadRaftState())
 
 
 	return rf

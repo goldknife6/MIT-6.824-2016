@@ -6,7 +6,6 @@ import "log"
 import "raft"
 import "sync"
 import "bytes"
-import "sync/atomic"
 import "encoding/gob"
 
 
@@ -29,7 +28,6 @@ type Op struct {
 type RaftKV struct {
 	mu      sync.Mutex
 	me      int
-	dead    int32 // for testing
 	rf      *raft.Raft
 	applyCh chan raft.ApplyMsg
 
@@ -45,16 +43,15 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
 }
 
-// tell the server to shut itself down.
-// please do not change these two functions.
+//
+// the tester calls Kill() when a RaftKV instance won't
+// be needed again. you are not required to do anything
+// in Kill(), but it might be convenient to (for example)
+// turn off debug output from this instance.
+//
 func (kv *RaftKV) Kill() {
-	atomic.StoreInt32(&kv.dead, 1)
 	kv.rf.Kill()
-}
-
-// call this to find out if the server is dead.
-func (kv *RaftKV) isdead() bool {
-	return atomic.LoadInt32(&kv.dead) != 0
+	// Your code here, if desired.
 }
 
 //
