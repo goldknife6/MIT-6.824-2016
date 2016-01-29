@@ -9,6 +9,7 @@ package raft
 //
 
 import "labrpc"
+import "log"
 import "sync"
 import "testing"
 import "runtime"
@@ -167,7 +168,7 @@ func (cfg *config) start1(i int) {
 			}
 
 			if err_msg != "" {
-				fmt.Printf("apply error: %v\n", err_msg)
+				log.Fatalf("apply error: %v\n", err_msg)
 				cfg.applyErr[i] = err_msg
 				// keep reading after error so that Raft doesn't block
 				// holding locks...
