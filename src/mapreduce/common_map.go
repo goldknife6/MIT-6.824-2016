@@ -21,7 +21,7 @@ func doMap(
 	// Since the reduce jobs have to output JSON anyway, you should
 	// probably do that here too. You can write JSON to a file using
 	//
-	//   enc := json.NewEncode(file)
+	//   enc := json.NewEncoder(file)
 	//   for _, kv := ... {
 	//     err := enc.Encode(&kv)
 	//

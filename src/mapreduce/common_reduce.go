@@ -16,9 +16,12 @@ func doReduce(
 	// multiple decoded values by creating a decoder, and then repeatedly
 	// calling .Decode() on it until Decode() returns an error..
 	//
-	// You should write the reduced output in sorted key order as JSON
-	// encoded KeyValue objects to a file named mergeName(jobName, job).
-	// It will look something like this:
+	// You should write the reduced output in as JSON encoded KeyValue
+	// objects to a file named mergeName(jobName, job). We require you to
+	// use JSON here because that is what the merger than combines the
+	// output from all the reduce jobs expects. There is nothing "special"
+	// about JSON -- it is just the marshalling format we chose to use. It
+	// will look something like this:
 	//
 	// enc := json.NewEncoder(mergeFile)
 	// for key in ... {
