@@ -16,7 +16,7 @@ func debug(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
-// jobPhase indicates whether a job is scheduled as a map or reduce task.
+// jobPhase indicates whether a task is scheduled as a map or reduce task.
 type jobPhase string
 
 const (
@@ -31,13 +31,13 @@ type KeyValue struct {
 	Value string
 }
 
-// reduceName constructs the name of the intermediate file which map job
-// <MapJob> produces for reduce job <ReduceJob>.
-func reduceName(jobName string, MapJob int, ReduceJob int) string {
-	return "mrtmp." + jobName + "-" + strconv.Itoa(MapJob) + "-" + strconv.Itoa(ReduceJob)
+// reduceName constructs the name of the intermediate file which map task
+// <mapTask> produces for reduce task <reduceTask>.
+func reduceName(jobName string, mapTask int, reduceTask int) string {
+	return "mrtmp." + jobName + "-" + strconv.Itoa(mapTask) + "-" + strconv.Itoa(reduceTask)
 }
 
-// mergeName constructs the name of the output file of reduce job <ReduceJob>
-func mergeName(jobName string, ReduceJob int) string {
-	return "mrtmp." + jobName + "-res-" + strconv.Itoa(ReduceJob)
+// mergeName constructs the name of the output file of reduce task <reduceTask>
+func mergeName(jobName string, reduceTask int) string {
+	return "mrtmp." + jobName + "-res-" + strconv.Itoa(reduceTask)
 }

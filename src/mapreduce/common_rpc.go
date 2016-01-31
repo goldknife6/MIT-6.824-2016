@@ -8,24 +8,24 @@ import (
 // What follows are RPC types and methods.
 // Field names must start with capital letters, otherwise RPC will break.
 
-// DoJobArgs holds the arguments that are passed to a worker when a job is
+// DoTaskArgs holds the arguments that are passed to a worker when a task is
 // scheduled on it.
-type DoJobArgs struct {
-	JobName   string
-	File      string   // the file to process
-	Phase     jobPhase // are we in mapPhase or reducePhase?
-	JobNumber int      // this job's index in the current phase
+type DoTaskArgs struct {
+	JobName    string
+	File       string   // the file to process
+	Phase      jobPhase // are we in mapPhase or reducePhase?
+	TaskNumber int      // this task's index in the current phase
 
-	// NumOtherPhase is the total number of jobs in other phase; mappers
+	// NumOtherPhase is the total number of tasks in other phase; mappers
 	// need this to compute the number of output bins, and reducers needs
 	// this to know how many input files to collect.
 	NumOtherPhase int
 }
 
 // ShutdownReply is the response to a WorkerShutdown.
-// It holds the number of jobs this worker has processed since it was started.
+// It holds the number of tasks this worker has processed since it was started.
 type ShutdownReply struct {
-	Njobs int
+	Ntasks int
 }
 
 // RegisterArgs is the argument passed when a worker registers with the master.

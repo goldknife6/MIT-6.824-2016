@@ -86,8 +86,8 @@ func check(t *testing.T, files []string) {
 // Workers report back how many RPCs they have processed in the Shutdown reply.
 // Check that they processed at least 1 RPC.
 func checkWorker(t *testing.T, l []int) {
-	for _, jobs := range l {
-		if jobs == 0 {
+	for _, tasks := range l {
+		if tasks == 0 {
 			t.Fatalf("Some worker didn't do any work\n")
 		}
 	}
@@ -171,7 +171,7 @@ func TestBasic(t *testing.T) {
 
 func TestOneFailure(t *testing.T) {
 	mr := setup()
-	// Start 2 workers that fail after 10 jobs
+	// Start 2 workers that fail after 10 tasks
 	go RunWorker(mr.address, port("worker"+strconv.Itoa(0)),
 		MapFunc, ReduceFunc, 10)
 	go RunWorker(mr.address, port("worker"+strconv.Itoa(1)),
@@ -193,7 +193,7 @@ func TestManyFailures(t *testing.T) {
 			cleanup(mr)
 			break
 		default:
-			// Start 2 workers each sec. The workers fail after 10 jobs
+			// Start 2 workers each sec. The workers fail after 10 tasks
 			w := port("worker" + strconv.Itoa(i))
 			go RunWorker(mr.address, w, MapFunc, ReduceFunc, 10)
 			i++

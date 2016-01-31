@@ -1,7 +1,7 @@
 package mapreduce
 
 // doReduce does the job of a reduce worker: it reads the intermediate
-// key/value pairs (produced by the map phase) for this job, sorts the
+// key/value pairs (produced by the map phase) for this task, sorts the
 // intermediate key/value pairs by key, calls the user-defined reduce function
 // (reduceF) for each key, and writes the output to disk.
 func doReduce(
@@ -22,7 +22,7 @@ func doReduce(
 	// You should write the reduced output in as JSON encoded KeyValue
 	// objects to a file named mergeName(jobName, reduceTaskNumber). We require
 	// you to use JSON here because that is what the merger than combines the
-	// output from all the reduce jobs expects. There is nothing "special" about
+	// output from all the reduce tasks expects. There is nothing "special" about
 	// JSON -- it is just the marshalling format we chose to use. It will look
 	// something like this:
 	//

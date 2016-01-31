@@ -25,7 +25,7 @@ type Master struct {
 }
 
 // Register is an RPC method that is called by workers after they have started
-// up to report that they are ready to receive jobs.
+// up to report that they are ready to receive tasks.
 func (mr *Master) Register(args *RegisterArgs, _ *struct{}) error {
 	debug("Register: worker %s\n", args.Worker)
 	mr.workers = append(mr.workers, args.Worker)
@@ -43,7 +43,7 @@ func newMaster(master string) (mr *Master) {
 	return
 }
 
-// Sequential runs map and reduce job sequentially, waiting for each job to
+// Sequential runs map and reduce tasks sequentially, waiting for each task to
 // complete before scheduling the next.
 func Sequential(jobName string, files []string, nreduce int,
 	mapF func(string, string) []KeyValue,
@@ -67,7 +67,7 @@ func Sequential(jobName string, files []string, nreduce int,
 	return
 }
 
-// Distributed schedules map and reduce jobs on workers that register with the
+// Distributed schedules map and reduce tasks on workers that register with the
 // master over RPC.
 func Distributed(jobName string, files []string, nreduce int, master string) (mr *Master) {
 	mr = newMaster(master)
@@ -82,12 +82,12 @@ func Distributed(jobName string, files []string, nreduce int, master string) (mr
 // run executes a mapreduce job on the given number of mappers and reducers.
 //
 // First, it divides up the input file among the given number of mappers, and
-// schedules each job on workers as they become available. Each map job bins
+// schedules each task on workers as they become available. Each map task bins
 // its output in a number of intermediate bins equal to the given number of
-// reduce jobs. Once all the mappers have finished, workers are assigned
-// reduce jobs.
+// reduce task. Once all the mappers have finished, workers are assigned
+// reduce task.
 //
-// When all jobs have been completed, the reducer outputs are merged,
+// When all tasks have been completed, the reducer outputs are merged,
 // statistics are collected, and the master is shut down.
 //
 // Note that this implementation assumes a shared file system.
@@ -112,16 +112,16 @@ func (mr *Master) run(jobName string, files []string, nreduce int,
 }
 
 // Wait blocks until the currently scheduled work has completed.
-// This happens when all jobs have scheduled and completed, the final output
+// This happens when all tasks have scheduled and completed, the final output
 // have been computed, and all workers have been shut down.
 func (mr *Master) Wait() {
 	<-mr.doneChannel
 }
 
 // killWorkers cleans up all workers by sending each one a Shutdown RPC.
-// It also collects and returns the number of jobs each work has performed.
+// It also collects and returns the number of tasks each worker has performed.
 func (mr *Master) killWorkers() []int {
-	njobs := make([]int, 0, len(mr.workers))
+	ntasks := make([]int, 0, len(mr.workers))
 	for _, w := range mr.workers {
 		debug("Master: shutdown worker %s\n", w)
 		var reply ShutdownReply
@@ -129,8 +129,8 @@ func (mr *Master) killWorkers() []int {
 		if ok == false {
 			fmt.Printf("Master: RPC %s shutdown error\n", w)
 		} else {
-			njobs = append(njobs, reply.Njobs)
+			ntasks = append(ntasks, reply.Ntasks)
 		}
 	}
-	return njobs
+	return ntasks
 }

@@ -9,22 +9,22 @@
 //      reduce function, and the number of reduce tasks (nReduce).
 //   2. A master is created with this knowledge. It spins up an RPC server (see
 //      master_rpc.go), and waits for workers to register (using the RPC call
-//      Register() [defined in master.go]). As jobs become available (in steps
-//      4 and 5), schedule() [schedule.go] decides how to assign those jobs to
+//      Register() [defined in master.go]). As tasks become available (in steps
+//      4 and 5), schedule() [schedule.go] decides how to assign those tasks to
 //      workers, and how to handle worker failures.
-//   3. The master considers each input file one map job, and makes a call to
-//      doMap() [common_map.go] at least once for each job. It does so either
+//   3. The master considers each input file one map tasks, and makes a call to
+//      doMap() [common_map.go] at least once for each task. It does so either
 //      directly (when using Sequential()) or by issuing the DoJob RPC on a
 //      worker [worker.go]. Each call to doMap() reads the appropriate file,
 //      calls the map function on that file's contents, and produces nReduce
 //      files for each map file. Thus, there will be #files x nReduce files
-//      after all map jobs are done:
+//      after all map tasks are done:
 //
 //          f0-0, ..., f0-0, f0-<nReduce-1>, ...,
 //          f<#files-1>-0, ... f<#files-1>-<nReduce-1>.
 //
 //   4. The master next makes a call to doReduce() [common_reduce.go] at least
-//      once for each reduce job. As for doMap(), it does so either directly or
+//      once for each reduce task. As for doMap(), it does so either directly or
 //      through a worker. doReduce() collects nReduce reduce files from each
 //      map (f-*-<reduce>), and runs the reduce function on those files. This
 //      produces nReduce result files.

@@ -6,40 +6,40 @@ import "log"
 import "net/rpc"
 import "net"
 
-// Worker holds the state for a server waiting for DoJob or Shutdown RPCs
+// Worker holds the state for a server waiting for DoTask or Shutdown RPCs
 type Worker struct {
 	name   string
 	Map    func(string, string) []KeyValue
 	Reduce func(string, []string) string
 	nRPC   int
-	nJobs  int
+	nTasks int
 	l      net.Listener
 }
 
-// DoJob is called by the master when a new job is being scheduled on this
+// DoTask is called by the master when a new task is being scheduled on this
 // worker.
-func (wk *Worker) DoJob(arg *DoJobArgs, _ *struct{}) error {
-	fmt.Printf("%s: given %v job #%d on file %s (nios: %d)\n",
-		wk.name, arg.Phase, arg.JobNumber, arg.File, arg.NumOtherPhase)
+func (wk *Worker) DoTask(arg *DoTaskArgs, _ *struct{}) error {
+	fmt.Printf("%s: given %v task #%d on file %s (nios: %d)\n",
+		wk.name, arg.Phase, arg.TaskNumber, arg.File, arg.NumOtherPhase)
 
 	switch arg.Phase {
 	case mapPhase:
-		doMap(arg.JobName, arg.JobNumber, arg.File, arg.NumOtherPhase, wk.Map)
+		doMap(arg.JobName, arg.TaskNumber, arg.File, arg.NumOtherPhase, wk.Map)
 	case reducePhase:
-		doReduce(arg.JobName, arg.JobNumber, arg.NumOtherPhase, wk.Reduce)
+		doReduce(arg.JobName, arg.TaskNumber, arg.NumOtherPhase, wk.Reduce)
 	}
 
-	fmt.Printf("%s: %v job #%d done\n", wk.name, arg.Phase, arg.JobNumber)
+	fmt.Printf("%s: %v task #%d done\n", wk.name, arg.Phase, arg.TaskNumber)
 	return nil
 }
 
 // Shutdown is called by the master when all work has been completed.
-// We should respond with the number of jobs we have processed.
+// We should respond with the number of tasks we have processed.
 func (wk *Worker) Shutdown(_ *struct{}, res *ShutdownReply) error {
 	debug("Shutdown %s\n", wk.name)
-	res.Njobs = wk.nJobs
+	res.Ntasks = wk.nTasks
 	wk.nRPC = 1 // OK, because the same thread reads nRPC
-	wk.nJobs--  // Don't count the shutdown RPC
+	wk.nTasks-- // Don't count the shutdown RPC
 	return nil
 }
 
@@ -54,7 +54,7 @@ func (wk *Worker) register(master string) {
 }
 
 // RunWorker sets up a connection with the master, registers its address, and
-// waits for jobs to be scheduled.
+// waits for tasks to be scheduled.
 func RunWorker(MasterAddress string, me string,
 	MapFunc func(string, string) []KeyValue,
 	ReduceFunc func(string, []string) string,
@@ -82,7 +82,7 @@ func RunWorker(MasterAddress string, me string,
 		if err == nil {
 			wk.nRPC--
 			go rpcs.ServeConn(conn)
-			wk.nJobs++
+			wk.nTasks++
 		} else {
 			break
 		}
