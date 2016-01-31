@@ -7,8 +7,8 @@ package mapreduce
 // to disk.
 func doReduce(
 	jobName string,
-	job int,
-	nMap int,
+	job int, // which reduce job this is
+	nMap int, // the number of map jobs that were run
 	reduceF func(key string, values []string) string,
 ) {
 	// TODO:

@@ -9,9 +9,9 @@ import (
 // contents, and writes the output into nReduce intermediate bins.
 func doMap(
 	jobName string,
-	job int,
+	job int, // which map job this is
 	inFile string,
-	nReduce int,
+	nReduce int, // the number of reduce jobs that will be run
 	mapF func(file string, contents string) []KeyValue,
 ) {
 	// TODO:
