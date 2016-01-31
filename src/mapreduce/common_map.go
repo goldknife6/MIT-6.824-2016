@@ -2,8 +2,9 @@ package mapreduce
 
 import "hash/fnv"
 
-// doMap reads the assigned input file, calls mapF for that file's contents,
-// and writes the output into nReduce output bins.
+// doMap does the job of a map worker: it reads the one of the input files
+// (inFile), calls the user-defined map function (mapF) for that file's
+// contents, and writes the output into nReduce intermediate bins.
 func doMap(
 	jobName string,
 	job int,
@@ -13,8 +14,9 @@ func doMap(
 ) {
 	// TODO:
 	// You will need to write this function.
-	// You can find the output bin filename for reduce job r using reduceName(jobName, job, r).
-	// The ihash function (given below doMap) should be used for output binning.
+	// You can find the intermediate bin filename for reduce job r using
+	// reduceName(jobName, job, r). The ihash function (given below doMap) should
+	// be used to decide which bin a given key belongs into.
 	//
 	// You may choose how you would like to encode the key/value pairs in
 	// the intermediate files. One way would be to encode them using JSON.

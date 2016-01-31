@@ -31,8 +31,8 @@ type KeyValue struct {
 	Value string
 }
 
-// reduceName constructs the name of the output file of map job <MapJob> for
-// reduce job <ReduceJob>.
+// reduceName constructs the name of the intermediate file which map job
+// <MapJob> produces for reduce job <ReduceJob>.
 func reduceName(jobName string, MapJob int, ReduceJob int) string {
 	return "mrtmp." + jobName + "-" + strconv.Itoa(MapJob) + "-" + strconv.Itoa(ReduceJob)
 }

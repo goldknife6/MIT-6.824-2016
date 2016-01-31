@@ -83,8 +83,9 @@ func Distributed(jobName string, files []string, nreduce int, master string) (mr
 //
 // First, it divides up the input file among the given number of mappers, and
 // schedules each job on workers as they become available. Each map job bins
-// its output in a number of bins equal to the given number of reduce jobs.
-// Once all the mappers have finished, workers are assigned reduce jobs.
+// its output in a number of intermediate bins equal to the given number of
+// reduce jobs. Once all the mappers have finished, workers are assigned
+// reduce jobs.
 //
 // When all jobs have been completed, the reducer outputs are merged,
 // statistics are collected, and the master is shut down.

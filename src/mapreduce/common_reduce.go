@@ -1,7 +1,10 @@
 package mapreduce
 
-// doReduce reads the map outputs for the bin assigned to this job, sorts the
-// outputs by key, calls reduceF for each key, and writes the output to disk.
+// doReduce does the job of a reduce worker: it reads the intermediate
+// key/value pairs (produced by the map phase) for the bin assigned to this job
+// (jobName), sorts the intermediate key/value pairs by key, calls the
+// user-defined reduce function (reduceF) for each key, and writes the output
+// to disk.
 func doReduce(
 	jobName string,
 	job int,
@@ -10,11 +13,12 @@ func doReduce(
 ) {
 	// TODO:
 	// You will need to write this function.
-	// You can find the output bin for this reduce job from map job m using reduceName(jobName, m, job).
-	// Remember that the values in the input files are encoded, so you will
-	// need to decode them. If you chose to use JSON, you can read out
-	// multiple decoded values by creating a decoder, and then repeatedly
-	// calling .Decode() on it until Decode() returns an error..
+	// You can find the intermediate bin for this reduce job from map job m using
+	// reduceName(jobName, m, job).
+	// Remember that you've encoded the values in the intermediate files, so you
+	// will need to decode them. If you chose to use JSON, you can read out
+	// multiple decoded values by creating a decoder, and then repeatedly calling
+	// .Decode() on it until Decode() returns an error.
 	//
 	// You should write the reduced output in as JSON encoded KeyValue
 	// objects to a file named mergeName(jobName, job). We require you to
