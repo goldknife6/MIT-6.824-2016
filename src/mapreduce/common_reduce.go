@@ -9,7 +9,7 @@ func doReduce(
 	jobName string,
 	job int,
 	nMap int,
-	reduceF func(string, []string) string,
+	reduceF func(key string, values []string) string,
 ) {
 	// TODO:
 	// You will need to write this function.

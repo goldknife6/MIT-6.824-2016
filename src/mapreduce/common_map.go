@@ -1,6 +1,8 @@
 package mapreduce
 
-import "hash/fnv"
+import (
+	"hash/fnv"
+)
 
 // doMap does the job of a map worker: it reads the one of the input files
 // (inFile), calls the user-defined map function (mapF) for that file's
@@ -10,7 +12,7 @@ func doMap(
 	job int,
 	inFile string,
 	nReduce int,
-	mapF func(string, string) []KeyValue,
+	mapF func(file string, contents string) []KeyValue,
 ) {
 	// TODO:
 	// You will need to write this function.
