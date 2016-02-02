@@ -1137,7 +1137,7 @@ take in the future. I leave a photograph which he might care to
 possess; and I remain, dear Mr. Sherlock Holmes,
 
                                       "Very truly yours,
-                                   "IRENE NORTON, née ADLER."
+                                   "IRENE NORTON, nee ADLER."
 
 "What a woman--oh, what a woman!" cried the King of Bohemia, when
 we had all three read this epistle. "Did I not tell you how quick
@@ -1371,7 +1371,7 @@ assistant, Mr. Holmes; and I know very well that he could better
 himself and earn twice what I am able to give him. But, after
 all, if he is satisfied, why should I put ideas in his head?"
 
-"Why, indeed? You seem most fortunate in having an employé who
+"Why, indeed? You seem most fortunate in having an employe who
 comes under the full market price. It is not a common experience
 among employers in this age. I don't know that your assistant is
 not as remarkable as your advertisement."
@@ -2097,7 +2097,7 @@ Merryweather, we must put the screen over that dark lantern."
 "And sit in the dark?"
 
 "I am afraid so. I had brought a pack of cards in my pocket, and
-I thought that, as we were a partie carrée, you might have your
+I thought that, as we were a partie carree, you might have your
 rubber after all. But I see that the enemy's preparations have
 gone so far that we cannot risk the presence of a light. And,
 first of all, we must choose our positions. These are daring men,
@@ -2305,7 +2305,7 @@ hand in hand, hover over this great city, gently remove the
 roofs, and peep in at the queer things which are going on, the
 strange coincidences, the plannings, the cross-purposes, the
 wonderful chains of events, working through generations, and
-leading to the most outré results, it would make all fiction with
+leading to the most outre results, it would make all fiction with
 its conventionalities and foreseen conclusions most stale and
 unprofitable."
 
@@ -2857,7 +2857,7 @@ attention at the time, and the whole of next day I was busy at
 the bedside of the sufferer. It was not until close upon six
 o'clock that I found myself free and was able to spring into a
 hansom and drive to Baker Street, half afraid that I might be too
-late to assist at the dénouement of the little mystery. I found
+late to assist at the denouement of the little mystery. I found
 Sherlock Holmes alone, however, half asleep, with his long, thin
 form curled up in the recesses of his armchair. A formidable
 array of bottles and test-tubes, with the pungent cleanly smell
@@ -3084,8 +3084,8 @@ address asking him if he would come here. As I expected, his
 reply was typewritten and revealed the same trivial but
 characteristic defects. The same post brought me a letter from
 Westhouse & Marbank, of Fenchurch Street, to say that the
-description tallied in every respect with that of their employé,
-James Windibank. Voilà tout!"
+description tallied in every respect with that of their employe,
+James Windibank. Voila tout!"
 
 "And Miss Sutherland?"
 
@@ -3284,7 +3284,7 @@ jaw, it is surely very clear that that side is less illuminated
 than the other. I could not imagine a man of your habits looking
 at himself in an equal light and being satisfied with such a
 result. I only quote this as a trivial example of observation and
-inference. Therein lies my métier, and it is just possible that
+inference. Therein lies my metier, and it is just possible that
 it may be of some service in the investigation which lies before
 us. There are one or two minor points which were brought out in
 the inquest, and which are worth considering."
@@ -3470,7 +3470,7 @@ young man's favour. Don't you see that you alternately give him
 credit for having too much imagination and too little? Too
 little, if he could not invent a cause of quarrel which would
 give him the sympathy of the jury; too much, if he evolved from
-his own inner consciousness anything so outré as a dying
+his own inner consciousness anything so outre as a dying
 reference to a rat, and the incident of the vanishing cloth. No,
 sir, I shall approach this case from the point of view that what
 this young man says is true, and we shall see whither that
@@ -10110,7 +10110,7 @@ with the help of a youth whom he had brought with him, and
 presently, to my very great astonishment, a quite epicurean
 little cold supper began to be laid out upon our humble
 lodging-house mahogany. There were a couple of brace of cold
-woodcock, a pheasant, a pâté de foie gras pie with a group of
+woodcock, a pheasant, a pate de foie gras pie with a group of
 ancient and cobwebby bottles. Having laid out all these luxuries,
 my two visitors vanished away, like the genii of the Arabian
 Nights, with no explanation save that the things had been paid
@@ -11546,7 +11546,7 @@ pleasant to me to observe, Watson, that you have so far grasped
 this truth that in these little records of our cases which you
 have been good enough to draw up, and, I am bound to say,
 occasionally to embellish, you have given prominence not so much
-to the many causes célèbres and sensational trials in which I
+to the many causes celebres and sensational trials in which I
 have figured but rather to those incidents which may have been
 trivial in themselves, but which have given room for those
 faculties of deduction and of logical synthesis which I have made
@@ -12159,7 +12159,7 @@ the nursery.
 "Two days later this same performance was gone through under
 exactly similar circumstances. Again I changed my dress, again I
 sat in the window, and again I laughed very heartily at the funny
-stories of which my employer had an immense répertoire, and which
+stories of which my employer had an immense repertoire, and which
 he told inimitably. Then he handed me a yellow-backed novel, and
 moving my chair a little sideways, that my own shadow might not
 fall upon the page, he begged me to read aloud to him. I read for
@@ -12467,7 +12467,7 @@ figure, and the colour of your hair. Hers had been cut off, very
 possibly in some illness through which she has passed, and so, of
 course, yours had to be sacrificed also. By a curious chance you
 came upon her tresses. The man in the road was undoubtedly some
-friend of hers--possibly her fiancé--and no doubt, as you wore
+friend of hers--possibly her fiance--and no doubt, as you wore
 the girl's dress and were so like her, he was convinced from your
 laughter, whenever he saw you, and afterwards from your gesture,
 that Miss Rucastle was perfectly happy, and that she no longer

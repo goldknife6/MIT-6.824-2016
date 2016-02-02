@@ -1,10 +1,12 @@
 package mapreduce
 
-import "fmt"
-import "os"
-import "log"
-import "net/rpc"
-import "net"
+import (
+	"fmt"
+	"log"
+	"net"
+	"net/rpc"
+	"os"
+)
 
 // Worker holds the state for a server waiting for DoTask or Shutdown RPCs
 type Worker struct {
