@@ -6,8 +6,8 @@ import (
 )
 
 // Master holds all the state that the master needs to keep track of. Of
-// particular importance is idleWorker, the channel that notifies the master of
-// workers that have gone idle and are in need of new work.
+// particular importance is registerChannel, the channel that notifies the
+// master of workers that have gone idle and are in need of new work.
 type Master struct {
 	address         string
 	registerChannel chan string
