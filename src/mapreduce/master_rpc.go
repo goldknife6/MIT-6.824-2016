@@ -11,7 +11,7 @@ import (
 // Shutdown is an RPC method that shuts down the Master's RPC server.
 func (mr *Master) Shutdown(_, _ *struct{}) error {
 	debug("Shutdown: registration server\n")
-	mr.alive = false
+	close(mr.shutdown)
 	mr.l.Close() // causes the Accept to fail
 	return nil
 }
@@ -31,7 +31,13 @@ func (mr *Master) startRPCServer() {
 	// now that we are listening on the master address, can fork off
 	// accepting connections to another thread.
 	go func() {
-		for mr.alive {
+	loop:
+		for {
+			select {
+			case <-mr.shutdown:
+				break loop
+			default:
+			}
 			conn, err := mr.l.Accept()
 			if err == nil {
 				go func() {

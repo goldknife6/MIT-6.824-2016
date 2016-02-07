@@ -3,30 +3,35 @@ package mapreduce
 import (
 	"fmt"
 	"net"
+	"sync"
 )
 
 // Master holds all the state that the master needs to keep track of. Of
 // particular importance is registerChannel, the channel that notifies the
 // master of workers that have gone idle and are in need of new work.
 type Master struct {
+	sync.Mutex
+
 	address         string
 	registerChannel chan string
 	doneChannel     chan bool
-	workers         []string
+	workers         []string // protected by the mutex
 
 	// Per-task information
 	jobName string   // Name of currently executing job
 	files   []string // Input files
 	nReduce int      // Number of reduce partitions
 
-	alive bool
-	l     net.Listener
-	stats []int
+	shutdown chan struct{}
+	l        net.Listener
+	stats    []int
 }
 
 // Register is an RPC method that is called by workers after they have started
 // up to report that they are ready to receive tasks.
 func (mr *Master) Register(args *RegisterArgs, _ *struct{}) error {
+	mr.Lock()
+	defer mr.Unlock()
 	debug("Register: worker %s\n", args.Worker)
 	mr.workers = append(mr.workers, args.Worker)
 	mr.registerChannel <- args.Worker
@@ -37,7 +42,7 @@ func (mr *Master) Register(args *RegisterArgs, _ *struct{}) error {
 func newMaster(master string) (mr *Master) {
 	mr = new(Master)
 	mr.address = master
-	mr.alive = true
+	mr.shutdown = make(chan struct{})
 	mr.registerChannel = make(chan string)
 	mr.doneChannel = make(chan bool)
 	return
@@ -120,6 +125,8 @@ func (mr *Master) Wait() {
 // killWorkers cleans up all workers by sending each one a Shutdown RPC.
 // It also collects and returns the number of tasks each worker has performed.
 func (mr *Master) killWorkers() []int {
+	mr.Lock()
+	defer mr.Unlock()
 	ntasks := make([]int, 0, len(mr.workers))
 	for _, w := range mr.workers {
 		debug("Master: shutdown worker %s\n", w)

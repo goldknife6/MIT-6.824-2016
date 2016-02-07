@@ -6,15 +6,18 @@ import (
 	"net"
 	"net/rpc"
 	"os"
+	"sync"
 )
 
 // Worker holds the state for a server waiting for DoTask or Shutdown RPCs
 type Worker struct {
+	sync.Mutex
+
 	name   string
 	Map    func(string, string) []KeyValue
 	Reduce func(string, []string) string
-	nRPC   int
-	nTasks int
+	nRPC   int // protected by mutex
+	nTasks int // protected by mutex
 	l      net.Listener
 }
 
@@ -39,8 +42,10 @@ func (wk *Worker) DoTask(arg *DoTaskArgs, _ *struct{}) error {
 // We should respond with the number of tasks we have processed.
 func (wk *Worker) Shutdown(_ *struct{}, res *ShutdownReply) error {
 	debug("Shutdown %s\n", wk.name)
+	wk.Lock()
+	defer wk.Unlock()
 	res.Ntasks = wk.nTasks
-	wk.nRPC = 1 // OK, because the same thread reads nRPC
+	wk.nRPC = 1
 	wk.nTasks-- // Don't count the shutdown RPC
 	return nil
 }
@@ -79,12 +84,22 @@ func RunWorker(MasterAddress string, me string,
 	wk.register(MasterAddress)
 
 	// DON'T MODIFY CODE BELOW
-	for wk.nRPC != 0 {
+	for {
+		wk.Lock()
+		if wk.nRPC == 0 {
+			wk.Unlock()
+			break
+		}
+		wk.Unlock()
 		conn, err := wk.l.Accept()
 		if err == nil {
+			wk.Lock()
 			wk.nRPC--
+			wk.Unlock()
 			go rpcs.ServeConn(conn)
+			wk.Lock()
 			wk.nTasks++
+			wk.Unlock()
 		} else {
 			break
 		}
