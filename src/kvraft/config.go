@@ -40,7 +40,7 @@ type config struct {
 	endnames     [][]string // names of each server's sending ClientEnds
 	clerks       map[*Clerk][]string
 	nextClientId int
-	maxlogsize   int
+	maxraftstate int
 }
 
 func (cfg *config) cleanup() {
@@ -275,7 +275,7 @@ func (cfg *config) StartServer(i int) {
 	}
 	cfg.mu.Unlock()
 
-	cfg.kvservers[i] = StartKVServer(ends, i, cfg.saved[i], cfg.maxlogsize)
+	cfg.kvservers[i] = StartKVServer(ends, i, cfg.saved[i], cfg.maxraftstate)
 
 	kvsvc := labrpc.MakeService(cfg.kvservers[i])
 	rfsvc := labrpc.MakeService(cfg.kvservers[i].rf)
@@ -318,7 +318,7 @@ func (cfg *config) make_partition() ([]int, []int) {
 	return p1, p2
 }
 
-func make_config(t *testing.T, tag string, n int, unreliable bool, maxlogsize int) *config {
+func make_config(t *testing.T, tag string, n int, unreliable bool, maxraftstate int) *config {
 	runtime.GOMAXPROCS(4)
 	cfg := &config{}
 	cfg.t = t
@@ -330,7 +330,7 @@ func make_config(t *testing.T, tag string, n int, unreliable bool, maxlogsize in
 	cfg.endnames = make([][]string, cfg.n)
 	cfg.clerks = make(map[*Clerk][]string)
 	cfg.nextClientId = cfg.n + 1000 // client ids start 1000 above the highest serverid
-	cfg.maxlogsize = maxlogsize
+	cfg.maxraftstate = maxraftstate
 
 	// create a full set of KV servers.
 	for i := 0; i < cfg.n; i++ {

@@ -1,10 +1,10 @@
 # This is the Makefile helping you submit the labs.  
 # Just create 6.824/api.key with your API key in it, 
 # and submit your lab with the following command: 
-#     $ make [lab1|lab2a|lab2b|lab3a|lab3b|lab4a|lab4b|lab5]
+#     $ make [lab1|lab2|lab3a|lab3b|lab4a|lab4b|lab5]
 
 KEY=$(shell cat api.key)
-LABS=" lab1 lab2a lab2b lab3a lab3b lab4a lab4b lab5 "
+LABS=" lab1 lab2 lab3a lab3b lab4a lab4b lab5 "
 
 %:
 	@if echo $(LABS) | grep -q " $@ " ; then \

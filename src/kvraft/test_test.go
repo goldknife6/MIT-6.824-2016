@@ -127,11 +127,11 @@ func partitioner(t *testing.T, cfg *config, ch chan bool, done *int32) {
 // particular key.  If unreliable is set, RPCs may fail.  If crash is set, the
 // servers crash after the period is over and restart.  If partitions is set,
 // the test repartitions the network concurrently with the clients and servers. If
-// maxlogsize is a positive number, the size of the state for Raft (i.e., log
-// size) shouldn't exceed 2*maxlogsize.
-func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash bool, partitions bool, maxlogsize int) {
+// maxraftstate is a positive number, the size of the state for Raft (i.e., log
+// size) shouldn't exceed 2*maxraftstate.
+func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash bool, partitions bool, maxraftstate int) {
 	const nservers = 5
-	cfg := make_config(t, tag, nservers, unreliable, maxlogsize)
+	cfg := make_config(t, tag, nservers, unreliable, maxraftstate)
 	defer cfg.cleanup()
 
 	ck := cfg.makeClient(cfg.All())
@@ -223,11 +223,11 @@ func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash 
 			checkClntAppends(t, i, v, j)
 		}
 
-		if maxlogsize > 0 {
+		if maxraftstate > 0 {
 			// Check maximum after the servers have processed all client
 			// requests and had time to checkpoint
-			if cfg.LogSize() > 2*maxlogsize {
-				log.Fatal("Raft log isn't been compacted\n")
+			if cfg.LogSize() > 2*maxraftstate {
+				t.Fatalf("logs were not trimmed (%v > 2*%v)", cfg.LogSize(), maxraftstate)
 			}
 		}
 	}
@@ -403,8 +403,8 @@ func TestPersistPartitionUnreliable(t *testing.T) {
 //
 func TestSnapshotRPC(t *testing.T) {
 	const nservers = 3
-	maxlogsize := 1000
-	cfg := make_config(t, "snapshotrpc", nservers, false, maxlogsize)
+	maxraftstate := 1000
+	cfg := make_config(t, "snapshotrpc", nservers, false, maxraftstate)
 	defer cfg.cleanup()
 
 	ck := cfg.makeClient(cfg.All())
@@ -427,8 +427,8 @@ func TestSnapshotRPC(t *testing.T) {
 
 	// check that the majority partition has thrown away
 	// most of its log entries.
-	if cfg.LogSize() > 2*maxlogsize {
-		t.Fatalf("logs were not trimmed")
+	if cfg.LogSize() > 2*maxraftstate {
+		t.Fatalf("logs were not trimmed (%v > 2*%v)", cfg.LogSize(), maxraftstate)
 	}
 
 	// now make group that requires participation of
