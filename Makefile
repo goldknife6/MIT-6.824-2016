@@ -8,7 +8,13 @@ LABS=" lab1 lab2 lab3a lab3b lab4a lab4b lab5 "
 
 %:
 	@if echo $(LABS) | grep -q " $@ " ; then \
-	    tar cvzf $@-handin.tar.gz --exclude=src/main/kjv12.txt Makefile .git src; \
+	    tar cvzf $@-handin.tar.gz \
+	      "--exclude=src/main/pg-*.txt" \
+	      "--exclude=src/*.*/" \
+	      "--exclude=src/mapreduce/824-mrinput-*.txt" \
+	      "--exclude=mrtmp.*" \
+	      "--exclude=src/main/diff.out" \
+	      Makefile .git src; \
 	    if test -z $(KEY) ; then \
 	        echo "Missing $(PWD)/api.key. Please create the file with your key in it or submit the $@-handin.tar.gz via the web interface."; \
 	    else \
