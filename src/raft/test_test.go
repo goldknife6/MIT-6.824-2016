@@ -613,6 +613,9 @@ func TestFigure8Unreliable(t *testing.T) {
 
 	nup := servers
 	for iters := 0; iters < 1000; iters++ {
+		if iters == 200 {
+			cfg.setlongreordering(true)
+		}
 		leader := -1
 		for i := 0; i < servers; i++ {
 			_, _, ok := cfg.rafts[i].Start(rand.Int() % 10000)

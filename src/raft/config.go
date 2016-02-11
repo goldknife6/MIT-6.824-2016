@@ -251,6 +251,10 @@ func (cfg *config) setunreliable(unrel bool) {
 	cfg.net.Reliable(!unrel)
 }
 
+func (cfg *config) setlongreordering(longrel bool) {
+	cfg.net.LongReordering(longrel)
+}
+
 // check that there's exactly one leader.
 // try a few times in case re-elections are needed.
 func (cfg *config) checkOneLeader() int {

@@ -88,13 +88,14 @@ func (e *ClientEnd) Call(svcMeth string, args interface{}, reply interface{}) bo
 }
 
 type Network struct {
-	mu          sync.Mutex
-	reliable    bool
-	longDelays  bool                        // pause a long time on send on disabled connection
-	ends        map[interface{}]*ClientEnd  // ends, by name
-	enabled     map[interface{}]bool        // by end name
-	servers     map[interface{}]*Server     // servers, by name
-	connections map[interface{}]interface{} // endname -> servername
+	mu             sync.Mutex
+	reliable       bool
+	longDelays     bool                        // pause a long time on send on disabled connection
+	longReordering bool                        // sometimes delay replies a long time
+	ends           map[interface{}]*ClientEnd  // ends, by name
+	enabled        map[interface{}]bool        // by end name
+	servers        map[interface{}]*Server     // servers, by name
+	connections    map[interface{}]interface{} // endname -> servername
 }
 
 func MakeNetwork() *Network {
@@ -114,6 +115,13 @@ func (rn *Network) Reliable(yes bool) {
 	rn.reliable = yes
 }
 
+func (rn *Network) LongReordering(yes bool) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	rn.longReordering = yes
+}
+
 func (rn *Network) LongDelays(yes bool) {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
@@ -121,18 +129,20 @@ func (rn *Network) LongDelays(yes bool) {
 	rn.longDelays = yes
 }
 
-func (rn *Network) ReadEndnameInfo(endname interface{}) (bool, interface{}, *Server, bool) {
+func (rn *Network) ReadEndnameInfo(endname interface{}) (enabled bool,
+	servername interface{}, server *Server, reliable bool, longreordering bool,
+) {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
 
-	enabled := rn.enabled[endname]
-	servername := rn.connections[endname]
-	var server *Server
+	enabled = rn.enabled[endname]
+	servername = rn.connections[endname]
 	if servername != nil {
 		server = rn.servers[servername]
 	}
-	reliable := rn.reliable
-	return enabled, servername, server, reliable
+	reliable = rn.reliable
+	longreordering = rn.longReordering
+	return
 }
 
 func (rn *Network) IsServerDead(endname interface{}, servername interface{}, server *Server) bool {
@@ -146,7 +156,7 @@ func (rn *Network) IsServerDead(endname interface{}, servername interface{}, ser
 }
 
 func (rn *Network) ProcessReq(req reqMsg, endname interface{}) {
-	enabled, servername, server, reliable := rn.ReadEndnameInfo(endname)
+	enabled, servername, server, reliable, longreordering := rn.ReadEndnameInfo(endname)
 	if enabled && servername != nil && server != nil {
 		if reliable == false {
 			// short delay
@@ -199,6 +209,11 @@ func (rn *Network) ProcessReq(req reqMsg, endname interface{}) {
 		} else if reliable == false && (rand.Int()%1000) < 100 {
 			// drop the reply, return as if timeout
 			req.replyCh <- replyMsg{false, nil}
+		} else if longreordering == true && rand.Intn(900) < 600 {
+			// delay the response for a while
+			ms := 200 + rand.Intn(1+rand.Intn(2000))
+			time.Sleep(time.Duration(ms) * time.Millisecond)
+			req.replyCh <- reply
 		} else {
 			req.replyCh <- reply
 		}
