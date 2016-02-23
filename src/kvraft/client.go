@@ -24,10 +24,6 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	return ck
 }
 
-func (ck *Clerk) Id() int64 {
-	return ck.id
-}
-
 //
 // fetch the current value for a key.
 // returns "" if the key does not exist.

@@ -1,13 +1,12 @@
 package raftkv
 
-import "labrpc"
-import "fmt"
-import "log"
-import "raft"
-import "sync"
-import "bytes"
-import "encoding/gob"
-
+import (
+	"encoding/gob"
+	"labrpc"
+	"log"
+	"raft"
+	"sync"
+)
 
 const Debug = 0
 
@@ -30,6 +29,8 @@ type RaftKV struct {
 	me      int
 	rf      *raft.Raft
 	applyCh chan raft.ApplyMsg
+
+	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
 }
@@ -75,8 +76,6 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.maxraftstate = maxraftstate
 
 	// Your initialization code here.
-
-	kv.restoreSnapshot(persister.ReadSnapshot())
 
 	kv.applyCh = make(chan raft.ApplyMsg)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)

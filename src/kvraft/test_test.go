@@ -28,7 +28,6 @@ func run_client(t *testing.T, cfg *config, me int, ca chan bool, fn func(me int,
 	fn(me, ck, t)
 	ok = true
 	cfg.deleteClient(ck)
-	//log.Printf("client %d/%v done\n", me, ck.Id())
 }
 
 // spawn ncli clients and wait until they are all done
