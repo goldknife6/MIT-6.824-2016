@@ -1,166 +1,99 @@
 package shardkv
 
-import "net"
-import "fmt"
-import "net/rpc"
-import "log"
-import "time"
-import "paxos"
+
+// import "shardmaster"
+import "labrpc"
+import "raft"
 import "sync"
-import "sync/atomic"
-import "os"
-import "syscall"
 import "encoding/gob"
-import "math/rand"
-import "shardmaster"
 
-
-const Debug = 0
-
-func DPrintf(format string, a ...interface{}) (n int, err error) {
-	if Debug > 0 {
-		log.Printf(format, a...)
-	}
-	return
-}
 
 
 type Op struct {
 	// Your definitions here.
+	// Field names must start with capital letters,
+	// otherwise RPC will break.
 }
 
-
 type ShardKV struct {
-	mu         sync.Mutex
-	l          net.Listener
-	me         int
-	dead       int32 // for testing
-	unreliable int32 // for testing
-	sm         *shardmaster.Clerk
-	px         *paxos.Paxos
-
-	gid int64 // my replica group ID
+	mu           sync.Mutex
+	me           int
+	rf           *raft.Raft
+	applyCh      chan raft.ApplyMsg
+	make_end     func(string) *labrpc.ClientEnd
+	gid          int
+	masters      []*labrpc.ClientEnd
+	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
 }
 
 
-func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) error {
+func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
-	return nil
 }
 
-// RPC handler for client Put and Append requests
-func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
+func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
-	return nil
 }
 
 //
-// Ask the shardmaster if there's a new configuration;
-// if so, re-configure.
+// the tester calls Kill() when a ShardKV instance won't
+// be needed again. you are not required to do anything
+// in Kill(), but it might be convenient to (for example)
+// turn off debug output from this instance.
 //
-func (kv *ShardKV) tick() {
+func (kv *ShardKV) Kill() {
+	kv.rf.Kill()
+	// Your code here, if desired.
 }
 
-// tell the server to shut itself down.
-// please don't change these two functions.
-func (kv *ShardKV) kill() {
-	atomic.StoreInt32(&kv.dead, 1)
-	kv.l.Close()
-	kv.px.Kill()
-}
-
-// call this to find out if the server is dead.
-func (kv *ShardKV) isdead() bool {
-	return atomic.LoadInt32(&kv.dead) != 0
-}
-
-// please do not change these two functions.
-func (kv *ShardKV) Setunreliable(what bool) {
-	if what {
-		atomic.StoreInt32(&kv.unreliable, 1)
-	} else {
-		atomic.StoreInt32(&kv.unreliable, 0)
-	}
-}
-
-func (kv *ShardKV) isunreliable() bool {
-	return atomic.LoadInt32(&kv.unreliable) != 0
-}
 
 //
-// Start a shardkv server.
-// gid is the ID of the server's replica group.
-// shardmasters[] contains the ports of the
-//   servers that implement the shardmaster.
-// servers[] contains the ports of the servers
-//   in this replica group.
-// Me is the index of this server in servers[].
+// servers[] contains the ports of the servers in this group.
 //
-func StartServer(gid int64, shardmasters []string,
-	servers []string, me int) *ShardKV {
+// me is the index of the current server in servers[].
+//
+// the k/v server should store snapshots with
+// persister.SaveSnapshot(), and Raft should save its state (including
+// log) with persister.SaveRaftState().
+//
+// the k/v server should snapshot when Raft's saved state exceeds
+// maxraftstate bytes, in order to allow Raft to garbage-collect its
+// log. if maxraftstate is -1, you don't need to snapshot.
+//
+// gid is this group's GID, for interacting with the shardmaster.
+//
+// pass masters[] to shardmaster.MakeClerk() so you can send
+// RPCs to the shardmaster.
+//
+// make_end(servername) turns a server name from a
+// Config.Groups[gid][i] into a labrpc.ClientEnd on which you can
+// send RPCs. You'll need this to send RPCs to other groups.
+//
+// look at client.go for examples of how to use masters[]
+// and make_end() to send RPCs to the group owning a specific shard.
+//
+func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister, maxraftstate int, gid int, masters []*labrpc.ClientEnd, make_end func(string) *labrpc.ClientEnd) *ShardKV {
+	// call gob.Register on structures you want
+	// Go's RPC library to marshall/unmarshall.
 	gob.Register(Op{})
 
 	kv := new(ShardKV)
 	kv.me = me
+	kv.maxraftstate = maxraftstate
+	kv.make_end = make_end
 	kv.gid = gid
-	kv.sm = shardmaster.MakeClerk(shardmasters)
+	kv.masters = masters
 
 	// Your initialization code here.
-	// Don't call Join().
 
-	rpcs := rpc.NewServer()
-	rpcs.Register(kv)
+	// Use something like this to talk to the shardmaster:
+	// kv.mck = shardmaster.MakeClerk(kv.masters)
 
-	kv.px = paxos.Make(servers, me, rpcs)
+	kv.applyCh = make(chan raft.ApplyMsg)
+	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
-
-	os.Remove(servers[me])
-	l, e := net.Listen("unix", servers[me])
-	if e != nil {
-		log.Fatal("listen error: ", e)
-	}
-	kv.l = l
-
-	// please do not change any of the following code,
-	// or do anything to subvert it.
-
-	go func() {
-		for kv.isdead() == false {
-			conn, err := kv.l.Accept()
-			if err == nil && kv.isdead() == false {
-				if kv.isunreliable() && (rand.Int63()%1000) < 100 {
-					// discard the request.
-					conn.Close()
-				} else if kv.isunreliable() && (rand.Int63()%1000) < 200 {
-					// process the request but force discard of reply.
-					c1 := conn.(*net.UnixConn)
-					f, _ := c1.File()
-					err := syscall.Shutdown(int(f.Fd()), syscall.SHUT_WR)
-					if err != nil {
-						fmt.Printf("shutdown: %v\n", err)
-					}
-					go rpcs.ServeConn(conn)
-				} else {
-					go rpcs.ServeConn(conn)
-				}
-			} else if err == nil {
-				conn.Close()
-			}
-			if err != nil && kv.isdead() == false {
-				fmt.Printf("ShardKV(%v) accept: %v\n", me, err.Error())
-				kv.kill()
-			}
-		}
-	}()
-
-	go func() {
-		for kv.isdead() == false {
-			kv.tick()
-			time.Sleep(250 * time.Millisecond)
-		}
-	}()
 
 	return kv
 }

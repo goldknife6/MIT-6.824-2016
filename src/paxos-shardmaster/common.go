@@ -17,53 +17,38 @@ package shardmaster
 // A GID is a replica group ID. GIDs must be uniqe and > 0.
 // Once a GID joins, and leaves, it should never join again.
 //
-// You will need to add fields to the RPC arguments.
+// Please don't change this file.
 //
 
-// The number of shards.
 const NShards = 10
 
-// A configuration -- an assignment of shards to groups.
-// Please don't change this.
 type Config struct {
-	Num    int              // config number
-	Shards [NShards]int     // shard -> gid
-	Groups map[int][]string // gid -> servers[]
+	Num    int                // config number
+	Shards [NShards]int64     // shard -> gid
+	Groups map[int64][]string // gid -> servers[]
 }
 
-const (
-	OK = "OK"
-)
-
-type Err string
-
 type JoinArgs struct {
-	GID     int      // unique replica group ID
+	GID     int64    // unique replica group ID
 	Servers []string // group server ports
 }
 
 type JoinReply struct {
-	WrongLeader bool
-	Err         Err
 }
 
 type LeaveArgs struct {
-	GID int
+	GID int64
 }
 
 type LeaveReply struct {
-	WrongLeader bool
-	Err         Err
 }
 
 type MoveArgs struct {
 	Shard int
-	GID   int
+	GID   int64
 }
 
 type MoveReply struct {
-	WrongLeader bool
-	Err         Err
 }
 
 type QueryArgs struct {
@@ -71,7 +56,5 @@ type QueryArgs struct {
 }
 
 type QueryReply struct {
-	WrongLeader bool
-	Err         Err
-	Config      Config
+	Config Config
 }

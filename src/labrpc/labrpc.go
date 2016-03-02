@@ -48,7 +48,6 @@ package labrpc
 import "encoding/gob"
 import "bytes"
 import "reflect"
-import "fmt"
 import "sync"
 import "log"
 import "strings"
@@ -362,7 +361,12 @@ func (rs *Server) dispatch(req reqMsg) replyMsg {
 	if ok {
 		return service.dispatch(methodName, req)
 	} else {
-		log.Fatalf("Server.dispatch(): unknown service %v\n", serviceName)
+		choices := []string{}
+		for k, _ := range rs.services {
+			choices = append(choices, k)
+		}
+		log.Fatalf("labrpc.Server.dispatch(): unknown service %v in %v.%v; expecting one of %v\n",
+			serviceName, serviceName, methodName, choices)
 		return replyMsg{false, nil}
 	}
 }
@@ -394,16 +398,19 @@ func MakeService(rcvr interface{}) *Service {
 		mtype := method.Type
 		mname := method.Name
 
-		if method.PkgPath != "" ||
+		//fmt.Printf("%v pp %v ni %v 1k %v 2k %v no %v\n",
+		//	mname, method.PkgPath, mtype.NumIn(), mtype.In(1).Kind(), mtype.In(2).Kind(), mtype.NumOut())
+
+		if method.PkgPath != "" || // capitalized?
 			mtype.NumIn() != 3 ||
-			mtype.In(1).Kind() != reflect.Ptr ||
+			//mtype.In(1).Kind() != reflect.Ptr ||
 			mtype.In(2).Kind() != reflect.Ptr ||
-			mtype.NumOut() != 1 {
+			mtype.NumOut() != 0 {
+			// the method is not suitable for a handler
+			//fmt.Printf("bad method: %v\n", mname)
+		} else {
 			// the method looks like a handler
 			svc.methods[mname] = method
-		} else {
-			// the method is not suitable for a handler
-			fmt.Printf("bad method: %v\n", mname)
 		}
 	}
 
@@ -437,7 +444,12 @@ func (svc *Service) dispatch(methname string, req reqMsg) replyMsg {
 
 		return replyMsg{true, rb.Bytes()}
 	} else {
-		log.Fatalf("labrpc.Service.dispatch(): no method %v\n", methname)
+		choices := []string{}
+		for k, _ := range svc.methods {
+			choices = append(choices, k)
+		}
+		log.Fatalf("labrpc.Service.dispatch(): unknown method %v in %v; expecting one of %v\n",
+			methname, req.svcMeth, choices)
 		return replyMsg{false, nil}
 	}
 }

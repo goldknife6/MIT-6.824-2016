@@ -169,7 +169,8 @@ func (rf *Raft) Kill() {
 //
 // the service or tester wants to create a Raft server. the ports
 // of all the Raft servers (including this one) are in peers[]. this
-// server's port is peers[me]. persister is a place for this server to
+// server's port is peers[me]. all the servers' peers[] arrays
+// have the same order. persister is a place for this server to
 // save its persistent state, and also initially holds the most
 // recent saved state, if any. applyCh is a channel on which the
 // tester or service expects Raft to send ApplyMsg messages.

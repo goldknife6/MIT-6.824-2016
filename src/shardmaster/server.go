@@ -1,25 +1,19 @@
 package shardmaster
 
-import "net"
-import "fmt"
-import "net/rpc"
-import "log"
 
-import "paxos"
+import "raft"
+import "labrpc"
 import "sync"
-import "sync/atomic"
-import "os"
-import "syscall"
 import "encoding/gob"
-import "math/rand"
+
 
 type ShardMaster struct {
-	mu         sync.Mutex
-	l          net.Listener
-	me         int
-	dead       int32 // for testing
-	unreliable int32 // for testing
-	px         *paxos.Paxos
+	mu      sync.Mutex
+	me      int
+	rf      *raft.Raft
+	applyCh chan raft.ApplyMsg
+
+	// Your data here.
 
 	configs []Config // indexed by config num
 }
@@ -30,53 +24,37 @@ type Op struct {
 }
 
 
-func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) error {
+func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) {
 	// Your code here.
-
-	return nil
 }
 
-func (sm *ShardMaster) Leave(args *LeaveArgs, reply *LeaveReply) error {
+func (sm *ShardMaster) Leave(args *LeaveArgs, reply *LeaveReply) {
 	// Your code here.
-
-	return nil
 }
 
-func (sm *ShardMaster) Move(args *MoveArgs, reply *MoveReply) error {
+func (sm *ShardMaster) Move(args *MoveArgs, reply *MoveReply) {
 	// Your code here.
-
-	return nil
 }
 
-func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) error {
+func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 	// Your code here.
-
-	return nil
 }
 
-// please don't change these two functions.
+
+//
+// the tester calls Kill() when a ShardMaster instance won't
+// be needed again. you are not required to do anything
+// in Kill(), but it might be convenient to (for example)
+// turn off debug output from this instance.
+//
 func (sm *ShardMaster) Kill() {
-	atomic.StoreInt32(&sm.dead, 1)
-	sm.l.Close()
-	sm.px.Kill()
+	sm.rf.Kill()
+	// Your code here, if desired.
 }
 
-// call this to find out if the server is dead.
-func (sm *ShardMaster) isdead() bool {
-	return atomic.LoadInt32(&sm.dead) != 0
-}
-
-// please do not change these two functions.
-func (sm *ShardMaster) setunreliable(what bool) {
-	if what {
-		atomic.StoreInt32(&sm.unreliable, 1)
-	} else {
-		atomic.StoreInt32(&sm.unreliable, 0)
-	}
-}
-
-func (sm *ShardMaster) isunreliable() bool {
-	return atomic.LoadInt32(&sm.unreliable) != 0
+// needed by shardkv tester
+func (sm *ShardMaster) Raft() *raft.Raft {
+	return sm.rf
 }
 
 //
@@ -85,57 +63,18 @@ func (sm *ShardMaster) isunreliable() bool {
 // form the fault-tolerant shardmaster service.
 // me is the index of the current server in servers[].
 //
-func StartServer(servers []string, me int) *ShardMaster {
+func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister) *ShardMaster {
 	sm := new(ShardMaster)
 	sm.me = me
 
 	sm.configs = make([]Config, 1)
-	sm.configs[0].Groups = map[int64][]string{}
-
-	rpcs := rpc.NewServer()
+	sm.configs[0].Groups = map[int][]string{}
 
 	gob.Register(Op{})
-	rpcs.Register(sm)
-	sm.px = paxos.Make(servers, me, rpcs)
+	sm.applyCh = make(chan raft.ApplyMsg)
+	sm.rf = raft.Make(servers, me, persister, sm.applyCh)
 
-	os.Remove(servers[me])
-	l, e := net.Listen("unix", servers[me])
-	if e != nil {
-		log.Fatal("listen error: ", e)
-	}
-	sm.l = l
-
-	// please do not change any of the following code,
-	// or do anything to subvert it.
-
-	go func() {
-		for sm.isdead() == false {
-			conn, err := sm.l.Accept()
-			if err == nil && sm.isdead() == false {
-				if sm.isunreliable() && (rand.Int63()%1000) < 100 {
-					// discard the request.
-					conn.Close()
-				} else if sm.isunreliable() && (rand.Int63()%1000) < 200 {
-					// process the request but force discard of reply.
-					c1 := conn.(*net.UnixConn)
-					f, _ := c1.File()
-					err := syscall.Shutdown(int(f.Fd()), syscall.SHUT_WR)
-					if err != nil {
-						fmt.Printf("shutdown: %v\n", err)
-					}
-					go rpcs.ServeConn(conn)
-				} else {
-					go rpcs.ServeConn(conn)
-				}
-			} else if err == nil {
-				conn.Close()
-			}
-			if err != nil && sm.isdead() == false {
-				fmt.Printf("ShardMaster(%v) accept: %v\n", me, err.Error())
-				sm.Kill()
-			}
-		}
-	}()
+	// Your code here.
 
 	return sm
 }
