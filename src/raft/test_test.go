@@ -13,6 +13,7 @@ import "fmt"
 import "time"
 import "math/rand"
 import "sync/atomic"
+import "sync"
 
 // The tester generously allows solutions to complete elections in one second
 // (much more than the paper's range of timeouts).
@@ -588,14 +589,22 @@ func TestUnreliableAgree(t *testing.T) {
 
 	fmt.Printf("Test: unreliable agreement ...\n")
 
+	var wg sync.WaitGroup
+
 	for iters := 1; iters < 50; iters++ {
 		for j := 0; j < 4; j++ {
-			go cfg.one((100*iters)+j, 1)
+			wg.Add(1)
+			go func(iters, j int) {
+				defer wg.Done()
+				cfg.one((100*iters)+j, 1)
+			}(iters, j)
 		}
 		cfg.one(iters, 1)
 	}
 
 	cfg.setunreliable(false)
+
+	wg.Wait()
 
 	cfg.one(100, servers)
 
