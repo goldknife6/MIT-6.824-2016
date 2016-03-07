@@ -68,10 +68,14 @@ func (cfg *config) cleanup() {
 func (cfg *config) checklogs() {
 	for gi := 0; gi < cfg.ngroups; gi++ {
 		for i := 0; i < cfg.n; i++ {
-			n := cfg.groups[gi].saved[i].RaftStateSize()
-			if n > 2*cfg.maxraftstate {
+			raft := cfg.groups[gi].saved[i].RaftStateSize()
+			snap := len(cfg.groups[gi].saved[i].ReadSnapshot())
+			if cfg.maxraftstate >= 0 && raft > 2*cfg.maxraftstate {
 				cfg.t.Fatalf("persister.RaftStateSize() %v, but maxraftstate %v",
-					n, cfg.maxraftstate)
+					raft, cfg.maxraftstate)
+			}
+			if cfg.maxraftstate < 0 && snap > 0 {
+				cfg.t.Fatalf("maxraftstate is -1, but snapshot is non-empty!")
 			}
 		}
 	}
