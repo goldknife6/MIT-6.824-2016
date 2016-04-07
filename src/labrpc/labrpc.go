@@ -21,7 +21,7 @@ package labrpc
 // net.Enable(endname, enabled) -- enable/disable a client.
 // net.Reliable(bool) -- false means drop/delay messages
 //
-// end.Call("Raft.AppendEntries", args, &reply) -- send an RPC, wait for reply.
+// end.Call("Raft.AppendEntries", &args, &reply) -- send an RPC, wait for reply.
 // the "Raft" is the name of the server struct to be called.
 // the "AppendEntries" is the name of the method to be called.
 // Call() returns true to indicate that the server executed the request
@@ -35,6 +35,9 @@ package labrpc
 // Call() is guaranteed to return (perhaps after a delay) *except* if the
 // handler function on the server side does not return. That is, there
 // is no need to implement your own timeouts around Call().
+// the server RPC handler function must declare its args and reply arguments
+// as pointers, so that their types exactly match the types of the arguments
+// to Call().
 //
 // srv := MakeServer()
 // srv.AddService(svc) -- a server can have multiple services, e.g. Raft and k/v

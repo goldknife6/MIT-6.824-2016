@@ -440,74 +440,6 @@ func TestConcurrent2(t *testing.T) {
 	fmt.Printf("  ... Passed\n")
 }
 
-func TestConcurrent3(t *testing.T) {
-	fmt.Printf("Test: concurrent configuration change and restart...\n")
-
-	cfg := make_config(t, 3, false, 300)
-	defer cfg.cleanup()
-
-	ck := cfg.makeClient()
-
-	cfg.join(0)
-
-	n := 10
-	ka := make([]string, n)
-	va := make([]string, n)
-	for i := 0; i < n; i++ {
-		ka[i] = strconv.Itoa(i)
-		va[i] = randstring(1)
-		ck.Put(ka[i], va[i])
-	}
-
-	var done int32
-	ch := make(chan bool)
-
-	ff := func(i int, ck1 *Clerk) {
-		defer func() { ch <- true }()
-		for atomic.LoadInt32(&done) == 0 {
-			x := randstring(1)
-			ck1.Append(ka[i], x)
-			va[i] += x
-		}
-	}
-
-	for i := 0; i < n; i++ {
-		ck1 := cfg.makeClient()
-		go ff(i, ck1)
-	}
-
-	t0 := time.Now()
-	for time.Since(t0) < 12*time.Second {
-		cfg.join(2)
-		cfg.join(1)
-		time.Sleep(time.Duration(rand.Int()%900) * time.Millisecond)
-		cfg.ShutdownGroup(0)
-		cfg.ShutdownGroup(1)
-		cfg.ShutdownGroup(2)
-		cfg.StartGroup(0)
-		cfg.StartGroup(1)
-		cfg.StartGroup(2)
-
-		time.Sleep(time.Duration(rand.Int()%900) * time.Millisecond)
-		cfg.leave(1)
-		cfg.leave(2)
-		time.Sleep(time.Duration(rand.Int()%900) * time.Millisecond)
-	}
-
-	time.Sleep(2 * time.Second)
-
-	atomic.StoreInt32(&done, 1)
-	for i := 0; i < n; i++ {
-		<-ch
-	}
-
-	for i := 0; i < n; i++ {
-		check(t, ck, ka[i], va[i])
-	}
-
-	fmt.Printf("  ... Passed\n")
-}
-
 func TestUnreliable1(t *testing.T) {
 	fmt.Printf("Test: unreliable 1...\n")
 
@@ -617,8 +549,8 @@ func TestUnreliable2(t *testing.T) {
 // optional test to see whether servers are deleting
 // shards for which they are no longer responsible.
 //
-func TestDelete(t *testing.T) {
-	fmt.Printf("Test: shard deletion (challenge) ...\n")
+func TestChallenge1Delete(t *testing.T) {
+	fmt.Printf("Test: shard deletion (challenge 1) ...\n")
 
 	// "1" means force snapshot after every log entry.
 	cfg := make_config(t, 3, false, 1)
@@ -693,6 +625,205 @@ func TestDelete(t *testing.T) {
 
 	for i := 0; i < n; i++ {
 		check(t, ck, ka[i], va[i])
+	}
+
+	fmt.Printf("  ... Passed\n")
+}
+
+func TestChallenge1Concurrent(t *testing.T) {
+	fmt.Printf("Test: concurrent configuration change and restart (challenge 1)...\n")
+
+	cfg := make_config(t, 3, false, 300)
+	defer cfg.cleanup()
+
+	ck := cfg.makeClient()
+
+	cfg.join(0)
+
+	n := 10
+	ka := make([]string, n)
+	va := make([]string, n)
+	for i := 0; i < n; i++ {
+		ka[i] = strconv.Itoa(i)
+		va[i] = randstring(1)
+		ck.Put(ka[i], va[i])
+	}
+
+	var done int32
+	ch := make(chan bool)
+
+	ff := func(i int, ck1 *Clerk) {
+		defer func() { ch <- true }()
+		for atomic.LoadInt32(&done) == 0 {
+			x := randstring(1)
+			ck1.Append(ka[i], x)
+			va[i] += x
+		}
+	}
+
+	for i := 0; i < n; i++ {
+		ck1 := cfg.makeClient()
+		go ff(i, ck1)
+	}
+
+	t0 := time.Now()
+	for time.Since(t0) < 12*time.Second {
+		cfg.join(2)
+		cfg.join(1)
+		time.Sleep(time.Duration(rand.Int()%900) * time.Millisecond)
+		cfg.ShutdownGroup(0)
+		cfg.ShutdownGroup(1)
+		cfg.ShutdownGroup(2)
+		cfg.StartGroup(0)
+		cfg.StartGroup(1)
+		cfg.StartGroup(2)
+
+		time.Sleep(time.Duration(rand.Int()%900) * time.Millisecond)
+		cfg.leave(1)
+		cfg.leave(2)
+		time.Sleep(time.Duration(rand.Int()%900) * time.Millisecond)
+	}
+
+	time.Sleep(2 * time.Second)
+
+	atomic.StoreInt32(&done, 1)
+	for i := 0; i < n; i++ {
+		<-ch
+	}
+
+	for i := 0; i < n; i++ {
+		check(t, ck, ka[i], va[i])
+	}
+
+	fmt.Printf("  ... Passed\n")
+}
+
+//
+// optional test to see whether servers can handle
+// shards that are not affected by a config change
+// while the config change is underway
+//
+func TestChallenge2Unaffected(t *testing.T) {
+	fmt.Printf("Test: unaffected shard access (challenge 2) ...\n")
+
+	cfg := make_config(t, 3, true, 100)
+	defer cfg.cleanup()
+
+	ck := cfg.makeClient()
+
+	// JOIN 100
+	cfg.join(0)
+
+	// Do a bunch of puts to keys in all shards
+	n := 10
+	ka := make([]string, n)
+	va := make([]string, n)
+	for i := 0; i < n; i++ {
+		ka[i] = strconv.Itoa(i) // ensure multiple shards
+		va[i] = "100"
+		ck.Put(ka[i], va[i])
+	}
+
+	// JOIN 101
+	cfg.join(1)
+
+	// QUERY to find shards now owned by 101
+	c := cfg.mck.Query(-1)
+	owned := make(map[int]bool, n)
+	for s, gid := range c.Shards {
+		owned[s] = gid == cfg.groups[1].gid
+	}
+
+	// Wait for migration to new config to complete, and for clients to
+	// start using this updated config. Gets to any key k such that
+	// owned[shard(k)] == true should now be served by group 101.
+	<-time.After(1 * time.Second)
+	for i := 0; i < n; i++ {
+		if owned[i] {
+			va[i] = "101"
+			ck.Put(ka[i], va[i])
+		}
+	}
+
+	// KILL 100
+	cfg.ShutdownGroup(0)
+
+	// LEAVE 100
+	// 101 doesn't get a chance to migrate things previously owned by 100
+	cfg.leave(0)
+
+	// Wait to make sure clients see new config
+	<-time.After(1 * time.Second)
+
+	// And finally: check that gets/puts for 101-owned keys still complete
+	for i := 0; i < n; i++ {
+		shard := int(ka[i][0]) % 10
+		if owned[shard] {
+			check(t, ck, ka[i], va[i])
+			ck.Put(ka[i], va[i]+"-1")
+			check(t, ck, ka[i], va[i]+"-1")
+		}
+	}
+
+	fmt.Printf("  ... Passed\n")
+}
+
+//
+// optional test to see whether servers can handle operations on shards that
+// have been received as a part of a config migration when the entire migration
+// has not yet completed.
+//
+func TestChallenge2Partial(t *testing.T) {
+	fmt.Printf("Test: partial migration shard access (challenge 2) ...\n")
+
+	cfg := make_config(t, 3, true, 100)
+	defer cfg.cleanup()
+
+	ck := cfg.makeClient()
+
+	// JOIN 100 + 101 + 102
+	cfg.joinm([]int{0, 1, 2})
+
+	// Give the implementation some time to reconfigure
+	<-time.After(1 * time.Second)
+
+	// Do a bunch of puts to keys in all shards
+	n := 10
+	ka := make([]string, n)
+	va := make([]string, n)
+	for i := 0; i < n; i++ {
+		ka[i] = strconv.Itoa(i) // ensure multiple shards
+		va[i] = "100"
+		ck.Put(ka[i], va[i])
+	}
+
+	// QUERY to find shards owned by 102
+	c := cfg.mck.Query(-1)
+	owned := make(map[int]bool, n)
+	for s, gid := range c.Shards {
+		owned[s] = gid == cfg.groups[2].gid
+	}
+
+	// KILL 100
+	cfg.ShutdownGroup(0)
+
+	// LEAVE 100 + 102
+	// 101 can get old shards from 102, but not from 100. 101 should start
+	// serving shards that used to belong to 102 as soon as possible
+	cfg.leavem([]int{0, 2})
+
+	// Give the implementation some time to start reconfiguration
+	// And to migrate 102 -> 101
+	<-time.After(1 * time.Second)
+
+	// And finally: check that gets/puts for 101-owned keys now complete
+	for i := 0; i < n; i++ {
+		shard := key2shard(ka[i])
+		if owned[shard] {
+			check(t, ck, ka[i], va[i])
+			ck.Put(ka[i], va[i]+"-2")
+			check(t, ck, ka[i], va[i]+"-2")
+		}
 	}
 
 	fmt.Printf("  ... Passed\n")

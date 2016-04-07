@@ -74,6 +74,9 @@ func (kv *ShardKV) Kill() {
 // look at client.go for examples of how to use masters[]
 // and make_end() to send RPCs to the group owning a specific shard.
 //
+// StartServer() must return quickly, so it should start goroutines
+// for any long-running work.
+//
 func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister, maxraftstate int, gid int, masters []*labrpc.ClientEnd, make_end func(string) *labrpc.ClientEnd) *ShardKV {
 	// call gob.Register on structures you want
 	// Go's RPC library to marshall/unmarshall.

@@ -45,10 +45,9 @@ func (ck *Clerk) Query(num int) Config {
 	}
 }
 
-func (ck *Clerk) Join(gid int, servers []string) {
+func (ck *Clerk) Join(servers map[int][]string) {
 	args := &JoinArgs{}
 	// Your code here.
-	args.GID = gid
 	args.Servers = servers
 
 	for {
@@ -64,10 +63,10 @@ func (ck *Clerk) Join(gid int, servers []string) {
 	}
 }
 
-func (ck *Clerk) Leave(gid int) {
+func (ck *Clerk) Leave(gids []int) {
 	args := &LeaveArgs{}
 	// Your code here.
-	args.GID = gid
+	args.GIDs = gids
 
 	for {
 		// try each known server.

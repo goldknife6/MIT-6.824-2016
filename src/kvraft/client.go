@@ -30,7 +30,11 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 // keeps trying forever in the face of all other errors.
 //
 // you can send an RPC with code like this:
-// ok := ck.servers[i].Call("RaftKV.Get", args, &reply)
+// ok := ck.servers[i].Call("RaftKV.Get", &args, &reply)
+//
+// the types of args and reply (including whether they are pointers)
+// must match the declared types of the RPC handler function's
+// arguments. and reply must be passed as a pointer.
 //
 func (ck *Clerk) Get(key string) string {
 
@@ -42,7 +46,11 @@ func (ck *Clerk) Get(key string) string {
 // shared by Put and Append.
 //
 // you can send an RPC with code like this:
-// ok := ck.servers[i].Call("RaftKV.PutAppend", args, &reply)
+// ok := ck.servers[i].Call("RaftKV.PutAppend", &args, &reply)
+//
+// the types of args and reply (including whether they are pointers)
+// must match the declared types of the RPC handler function's
+// arguments. and reply must be passed as a pointer.
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.

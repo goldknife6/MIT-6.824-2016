@@ -1,6 +1,9 @@
 package shardmaster
 
-import "testing"
+import (
+	"sync"
+	"testing"
+)
 
 // import "time"
 import "fmt"
@@ -89,16 +92,16 @@ func TestBasic(t *testing.T) {
 	check(t, []int{}, ck)
 
 	var gid1 int = 1
-	ck.Join(gid1, []string{"x", "y", "z"})
+	ck.Join(map[int][]string{gid1: []string{"x", "y", "z"}})
 	check(t, []int{gid1}, ck)
 	cfa[1] = ck.Query(-1)
 
 	var gid2 int = 2
-	ck.Join(gid2, []string{"a", "b", "c"})
+	ck.Join(map[int][]string{gid2: []string{"a", "b", "c"}})
 	check(t, []int{gid1, gid2}, ck)
 	cfa[2] = ck.Query(-1)
 
-	ck.Join(gid2, []string{"a", "b", "c"})
+	ck.Join(map[int][]string{gid2: []string{"a", "b", "c"}})
 	check(t, []int{gid1, gid2}, ck)
 	cfa[3] = ck.Query(-1)
 
@@ -112,11 +115,11 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("wrong servers for gid %v: %v\n", gid2, sa2)
 	}
 
-	ck.Leave(gid1)
+	ck.Leave([]int{gid1})
 	check(t, []int{gid2}, ck)
 	cfa[4] = ck.Query(-1)
 
-	ck.Leave(gid1)
+	ck.Leave([]int{gid1})
 	check(t, []int{gid2}, ck)
 	cfa[5] = ck.Query(-1)
 
@@ -139,9 +142,9 @@ func TestBasic(t *testing.T) {
 	fmt.Printf("Test: Move ...\n")
 	{
 		var gid3 int = 503
-		ck.Join(gid3, []string{"3a", "3b", "3c"})
+		ck.Join(map[int][]string{gid3: []string{"3a", "3b", "3c"}})
 		var gid4 int = 504
-		ck.Join(gid4, []string{"4a", "4b", "4c"})
+		ck.Join(map[int][]string{gid4: []string{"4a", "4b", "4c"}})
 		for i := 0; i < NShards; i++ {
 			cf := ck.Query(-1)
 			if i < NShards/2 {
@@ -176,8 +179,8 @@ func TestBasic(t *testing.T) {
 				}
 			}
 		}
-		ck.Leave(gid3)
-		ck.Leave(gid4)
+		ck.Leave([]int{gid3})
+		ck.Leave([]int{gid4})
 	}
 	fmt.Printf("  ... Passed\n")
 
@@ -195,9 +198,9 @@ func TestBasic(t *testing.T) {
 		go func(i int) {
 			defer func() { ch <- true }()
 			var gid int = gids[i]
-			cka[i].Join(gid+1000, []string{"a", "b", "c"})
-			cka[i].Join(gid, []string{"a", "b", "c"})
-			cka[i].Leave(gid + 1000)
+			cka[i].Join(map[int][]string{gid + 1000: []string{"a", "b", "c"}})
+			cka[i].Join(map[int][]string{gid: []string{"a", "b", "c"}})
+			cka[i].Leave([]int{gid + 1000})
 		}(xi)
 	}
 	for i := 0; i < npara; i++ {
@@ -211,7 +214,7 @@ func TestBasic(t *testing.T) {
 
 	c1 := ck.Query(-1)
 	for i := 0; i < 5; i++ {
-		ck.Join(int(npara+1+i), []string{"a", "b", "c"})
+		ck.Join(map[int][]string{int(npara + 1 + i): []string{"a", "b", "c"}})
 	}
 	c2 := ck.Query(-1)
 	for i := int(1); i <= npara; i++ {
@@ -229,8 +232,136 @@ func TestBasic(t *testing.T) {
 	fmt.Printf("Test: Minimal transfers after leaves ...\n")
 
 	for i := 0; i < 5; i++ {
-		ck.Leave(int(npara + 1 + i))
+		ck.Leave([]int{int(npara + 1 + i)})
 	}
+	c3 := ck.Query(-1)
+	for i := int(1); i <= npara; i++ {
+		for j := 0; j < len(c1.Shards); j++ {
+			if c2.Shards[j] == i {
+				if c3.Shards[j] != i {
+					t.Fatalf("non-minimal transfer after Leave()s")
+				}
+			}
+		}
+	}
+
+	fmt.Printf("  ... Passed\n")
+}
+
+func TestMulti(t *testing.T) {
+	const nservers = 3
+	cfg := make_config(t, nservers, false)
+	defer cfg.cleanup()
+
+	ck := cfg.makeClient(cfg.All())
+
+	fmt.Printf("Test: Multi-group join/leave ...\n")
+
+	cfa := make([]Config, 6)
+	cfa[0] = ck.Query(-1)
+
+	check(t, []int{}, ck)
+
+	var gid1 int = 1
+	var gid2 int = 2
+	ck.Join(map[int][]string{
+		gid1: []string{"x", "y", "z"},
+		gid2: []string{"a", "b", "c"},
+	})
+	check(t, []int{gid1, gid2}, ck)
+	cfa[1] = ck.Query(-1)
+
+	var gid3 int = 3
+	ck.Join(map[int][]string{gid3: []string{"j", "k", "l"}})
+	check(t, []int{gid1, gid2, gid3}, ck)
+	cfa[2] = ck.Query(-1)
+
+	ck.Join(map[int][]string{gid2: []string{"a", "b", "c"}})
+	check(t, []int{gid1, gid2, gid3}, ck)
+	cfa[3] = ck.Query(-1)
+
+	cfx := ck.Query(-1)
+	sa1 := cfx.Groups[gid1]
+	if len(sa1) != 3 || sa1[0] != "x" || sa1[1] != "y" || sa1[2] != "z" {
+		t.Fatalf("wrong servers for gid %v: %v\n", gid1, sa1)
+	}
+	sa2 := cfx.Groups[gid2]
+	if len(sa2) != 3 || sa2[0] != "a" || sa2[1] != "b" || sa2[2] != "c" {
+		t.Fatalf("wrong servers for gid %v: %v\n", gid2, sa2)
+	}
+	sa3 := cfx.Groups[gid3]
+	if len(sa3) != 3 || sa3[0] != "j" || sa3[1] != "k" || sa3[2] != "l" {
+		t.Fatalf("wrong servers for gid %v: %v\n", gid3, sa3)
+	}
+
+	ck.Leave([]int{gid1, gid3})
+	check(t, []int{gid2}, ck)
+	cfa[4] = ck.Query(-1)
+
+	cfx = ck.Query(-1)
+	sa2 = cfx.Groups[gid2]
+	if len(sa2) != 3 || sa2[0] != "a" || sa2[1] != "b" || sa2[2] != "c" {
+		t.Fatalf("wrong servers for gid %v: %v\n", gid2, sa2)
+	}
+
+	fmt.Printf("  ... Passed\n")
+
+	fmt.Printf("Test: Concurrent multi leave/join ...\n")
+
+	const npara = 10
+	var cka [npara]*Clerk
+	for i := 0; i < len(cka); i++ {
+		cka[i] = cfg.makeClient(cfg.All())
+	}
+	gids := make([]int, npara)
+	var wg sync.WaitGroup
+	for xi := 0; xi < npara; xi++ {
+		wg.Add(1)
+		gids[xi] = int(xi + 1)
+		go func(i int) {
+			defer wg.Done()
+			var gid int = gids[i]
+			cka[i].Join(map[int][]string{
+				gid:        []string{"a", "b", "c"},
+				gid + 1000: []string{"a", "b", "c"},
+				gid + 2000: []string{"a", "b", "c"},
+			})
+			cka[i].Leave([]int{gid + 1000, gid + 2000})
+		}(xi)
+	}
+	wg.Wait()
+	check(t, gids, ck)
+
+	fmt.Printf("  ... Passed\n")
+
+	fmt.Printf("Test: Minimal transfers after multijoins ...\n")
+
+	c1 := ck.Query(-1)
+	m := make(map[int][]string)
+	for i := 0; i < 5; i++ {
+		m[npara+1+i] = []string{"a", "b", "c"}
+	}
+	ck.Join(m)
+	c2 := ck.Query(-1)
+	for i := int(1); i <= npara; i++ {
+		for j := 0; j < len(c1.Shards); j++ {
+			if c2.Shards[j] == i {
+				if c1.Shards[j] != i {
+					t.Fatalf("non-minimal transfer after Join()s")
+				}
+			}
+		}
+	}
+
+	fmt.Printf("  ... Passed\n")
+
+	fmt.Printf("Test: Minimal transfers after multileaves ...\n")
+
+	var l []int
+	for i := 0; i < 5; i++ {
+		l = append(l, npara+1+i)
+	}
+	ck.Leave(l)
 	c3 := ck.Query(-1)
 	for i := int(1); i <= npara; i++ {
 		for j := 0; j < len(c1.Shards); j++ {

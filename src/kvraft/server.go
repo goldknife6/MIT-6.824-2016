@@ -65,6 +65,8 @@ func (kv *RaftKV) Kill() {
 // the k/v server should snapshot when Raft's saved state exceeds maxraftstate bytes,
 // in order to allow Raft to garbage-collect its log. if maxraftstate is -1,
 // you don't need to snapshot.
+// StartKVServer() must return quickly, so it should start goroutines
+// for any long-running work.
 //
 func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister, maxraftstate int) *RaftKV {
 	// call gob.Register on structures you want

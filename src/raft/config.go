@@ -342,7 +342,7 @@ func (cfg *config) nCommitted(index int) (int, interface{}) {
 
 // wait for at least n servers to commit.
 // but don't wait forever.
-func (cfg *config) wait(index int, n int) interface{} {
+func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 	to := 10 * time.Millisecond
 	for iters := 0; iters < 30; iters++ {
 		nd, _ := cfg.nCommitted(index)
@@ -352,6 +352,15 @@ func (cfg *config) wait(index int, n int) interface{} {
 		time.Sleep(to)
 		if to < time.Second {
 			to *= 2
+		}
+		if startTerm > -1 {
+			for _, r := range cfg.rafts {
+				if t, _ := r.GetState(); t > startTerm {
+					// someone has moved on
+					// can no longer guarantee that we'll "win"
+					return -1
+				}
+			}
 		}
 	}
 	nd, cmd := cfg.nCommitted(index)

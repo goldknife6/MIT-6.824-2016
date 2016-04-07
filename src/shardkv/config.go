@@ -281,22 +281,33 @@ func (cfg *config) shardclerk() *shardmaster.Clerk {
 
 // tell the shardmaster that a group is joining.
 func (cfg *config) join(gi int) {
-	gid := cfg.groups[gi].gid
-	servernames := make([]string, cfg.n)
-	for i := 0; i < cfg.n; i++ {
-		servernames[i] = cfg.servername(gid, i)
+	cfg.joinm([]int{gi})
+}
+
+func (cfg *config) joinm(gis []int) {
+	m := make(map[int][]string, len(gis))
+	for _, g := range gis {
+		gid := cfg.groups[g].gid
+		servernames := make([]string, cfg.n)
+		for i := 0; i < cfg.n; i++ {
+			servernames[i] = cfg.servername(gid, i)
+		}
+		m[gid] = servernames
 	}
-	cfg.mck.Join(gid, servernames)
+	cfg.mck.Join(m)
 }
 
 // tell the shardmaster that a group is leaving.
 func (cfg *config) leave(gi int) {
-	gid := cfg.groups[gi].gid
-	servernames := make([]string, cfg.n)
-	for i := 0; i < cfg.n; i++ {
-		servernames[i] = cfg.servername(gid, i)
+	cfg.leavem([]int{gi})
+}
+
+func (cfg *config) leavem(gis []int) {
+	gids := make([]int, 0, len(gis))
+	for _, g := range gis {
+		gids = append(gids, cfg.groups[g].gid)
 	}
-	cfg.mck.Leave(gid)
+	cfg.mck.Leave(gids)
 }
 
 func make_config(t *testing.T, n int, unreliable bool, maxraftstate int) *config {

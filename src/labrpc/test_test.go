@@ -5,6 +5,14 @@ import "strconv"
 import "sync"
 import "runtime"
 import "time"
+import "fmt"
+
+type JunkArgs struct {
+	X int
+}
+type JunkReply struct {
+	X string
+}
 
 type JunkServer struct {
 	mu   sync.Mutex
@@ -31,6 +39,16 @@ func (js *JunkServer) Handler3(args int, reply *int) {
 	defer js.mu.Unlock()
 	time.Sleep(20 * time.Second)
 	*reply = -args
+}
+
+// args is a pointer
+func (js *JunkServer) Handler4(args *JunkArgs, reply *JunkReply) {
+	reply.X = "pointer"
+}
+
+// args is a not pointer
+func (js *JunkServer) Handler5(args JunkArgs, reply *JunkReply) {
+	reply.X = "no pointer"
 }
 
 func TestBasic(t *testing.T) {
@@ -63,6 +81,44 @@ func TestBasic(t *testing.T) {
 		e.Call("JunkServer.Handler1", "9099", &reply)
 		if reply != 9099 {
 			t.Fatalf("wrong reply from Handler1")
+		}
+	}
+}
+
+func TestTypes(t *testing.T) {
+	runtime.GOMAXPROCS(4)
+
+	rn := MakeNetwork()
+
+	e := rn.MakeEnd("end1-99")
+
+	js := &JunkServer{}
+	svc := MakeService(js)
+
+	rs := MakeServer()
+	rs.AddService(svc)
+	rn.AddServer("server99", rs)
+
+	rn.Connect("end1-99", "server99")
+	rn.Enable("end1-99", true)
+
+	{
+		var args JunkArgs
+		var reply JunkReply
+		// args must match type (pointer or not) of handler.
+		e.Call("JunkServer.Handler4", &args, &reply)
+		if reply.X != "pointer" {
+			t.Fatalf("wrong reply from Handler4")
+		}
+	}
+
+	{
+		var args JunkArgs
+		var reply JunkReply
+		// args must match type (pointer or not) of handler.
+		e.Call("JunkServer.Handler5", args, &reply)
+		if reply.X != "no pointer" {
+			t.Fatalf("wrong reply from Handler5")
 		}
 	}
 }
@@ -429,4 +485,34 @@ func TestKilled(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("Handler3 should return after DeleteServer()")
 	}
+}
+
+func TestBenchmark(t *testing.T) {
+	runtime.GOMAXPROCS(4)
+
+	rn := MakeNetwork()
+
+	e := rn.MakeEnd("end1-99")
+
+	js := &JunkServer{}
+	svc := MakeService(js)
+
+	rs := MakeServer()
+	rs.AddService(svc)
+	rn.AddServer("server99", rs)
+
+	rn.Connect("end1-99", "server99")
+	rn.Enable("end1-99", true)
+
+	t0 := time.Now()
+	n := 100000
+	for iters := 0; iters < n; iters++ {
+		reply := ""
+		e.Call("JunkServer.Handler2", 111, &reply)
+		if reply != "handler2-111" {
+			t.Fatalf("wrong reply from Handler2")
+		}
+	}
+	fmt.Printf("%v for %v\n", time.Since(t0), n)
+	// march 2016, rtm laptop, 22 microseconds per RPC
 }

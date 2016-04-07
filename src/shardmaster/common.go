@@ -4,8 +4,8 @@ package shardmaster
 // Master shard server: assigns shards to replication groups.
 //
 // RPC interface:
-// Join(gid, servers) -- replica group gid is joining, give it some shards.
-// Leave(gid) -- replica group gid is retiring, hand off all its shards.
+// Join(servers) -- add a set of groups (gid -> server-list mapping).
+// Leave(gids) -- delete a set of groups.
 // Move(shard, gid) -- hand off one shard from current owner to gid.
 // Query(num) -> fetch Config # num, or latest config if num==-1.
 //
@@ -38,8 +38,7 @@ const (
 type Err string
 
 type JoinArgs struct {
-	GID     int      // unique replica group ID
-	Servers []string // group server ports
+	Servers map[int][]string // new GID -> servers mappings
 }
 
 type JoinReply struct {
@@ -48,7 +47,7 @@ type JoinReply struct {
 }
 
 type LeaveArgs struct {
-	GID int
+	GIDs []int
 }
 
 type LeaveReply struct {

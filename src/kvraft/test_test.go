@@ -478,5 +478,3 @@ func TestSnapshotUnreliableRecoverConcurrentPartition(t *testing.T) {
 	fmt.Printf("Test: persistence with several clients, failures, and snapshots, unreliable and partitions ...\n")
 	GenericTest(t, "snapshotunreliableconcurpartitions", 5, true, true, true, 1000)
 }
-
-// Test that solution avoids sending snapshots (send sending snapshots should be rare)
