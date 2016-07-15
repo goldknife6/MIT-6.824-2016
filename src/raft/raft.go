@@ -1,4 +1,3 @@
-
 package raft
 
 //
@@ -99,7 +98,9 @@ func (rf *Raft) getLastIndex() int {
 func (rf *Raft) getLastTerm() int {
 	return rf.log[len(rf.log) - 1].LogTerm
 }
-//
+func (rf *Raft) IsLeader() bool {
+	return rf.state == STATE_LEADER
+}
 // save Raft's persistent state to stable storage,
 // where it can later be retrieved after a crash and restart.
 // see paper's Figure 2 for a description of what should be persistent.
@@ -254,11 +255,9 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 		return
 	}
 	/*else {
-
 		//fmt.Printf("????? len:%v\n",len(args.Entries))
 		last := rf.getLastIndex()
 		elen := len(args.Entries)
-
 		for i := 0; i < elen ;i++ {
 			if args.PrevLogIndex + i > last || rf.log[args.PrevLogIndex + i].LogTerm != args.Entries[i].LogTerm {
 				rf.log = rf.log[: args.PrevLogIndex+1]
@@ -356,11 +355,13 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 			return ok
 		}
 		if reply.Success {
+
 			if len(args.Entries) > 0 {
 				//fmt.Printf("%v nextIndex:%v len:%v\n",rf.me,rf.nextIndex[server],len(args.Entries))
 				//rf.nextIndex[server] += len(args.Entries)
 				rf.nextIndex[server] = reply.NextIndex
 				rf.matchIndex[server] = rf.nextIndex[server] - 1
+
 			}
 		} else {
 			//fmt.Printf("failed nextIndex:%v len:%v\n",	reply.NextIndex,len(args.Entries))
@@ -391,6 +392,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	isLeader := rf.state == STATE_LEADER
 	if isLeader {
 		index = rf.getLastIndex() + 1
+		//fmt.Printf("raft:%d start\n",rf.me)
 		rf.log = append(rf.log, LogEntry{LogTerm:term,LogComd:command}) // append new entry from client
 		rf.persist()
 	}
@@ -432,6 +434,7 @@ func (rf *Raft) boatcastAppendEntries() {
 	defer rf.mu.Unlock()
 	N := rf.commitIndex
 	last := rf.getLastIndex()
+
 	for i := rf.commitIndex + 1; i <= last; i++ {
 		num := 1
 		for j := range rf.peers {
@@ -555,12 +558,12 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		for {
 			select {
 			case <-rf.chanCommit:
-			//	println(rf.me,rf.lastApplied,rf.commitIndex)
 				rf.mu.Lock()
 			  commitIndex := rf.commitIndex
 				for i := rf.lastApplied+1; i <= commitIndex; i++ {
 					msg := ApplyMsg{Index: i, Command: rf.log[i].LogComd}
 					applyCh <- msg
+					//fmt.Printf("me:%d %v\n",rf.me,msg)
 					rf.lastApplied = i
 				}
 				rf.mu.Unlock()
