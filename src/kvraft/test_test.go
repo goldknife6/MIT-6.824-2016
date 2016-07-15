@@ -235,25 +235,25 @@ func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash 
 }
 
 func TestBasic(t *testing.T) {
-	return
+	//return
 	fmt.Printf("Test: One client ...\n")
 	GenericTest(t, "basic", 1, false, false, false, -1)
 }
 
 func TestConcurrent(t *testing.T) {
-	return
+	//return
 	fmt.Printf("Test: concurrent clients ...\n")
 	GenericTest(t, "concur", 5, false, false, false, -1)
 }
 
 func TestUnreliable(t *testing.T) {
-	return
+	//return
 	fmt.Printf("Test: unreliable ...\n")
 	GenericTest(t, "unreliable", 5, true, false, false, -1)
 }
 
 func TestUnreliableOneKey(t *testing.T) {
-	return
+	//return
 	const nservers = 3
 	cfg := make_config(t, "onekey", nservers, true, -1)
 	defer cfg.cleanup()
@@ -289,7 +289,7 @@ func TestUnreliableOneKey(t *testing.T) {
 // doesn't go through until the partition heals.  The leader in the original
 // network ends up in the minority partition.
 func TestOnePartition(t *testing.T) {
-	return
+	//return
 	const nservers = 5
 	cfg := make_config(t, "partition", nservers, false, -1)
 	defer cfg.cleanup()
@@ -365,43 +365,43 @@ func TestOnePartition(t *testing.T) {
 }
 
 func TestManyPartitionsOneClient(t *testing.T) {
-	return
+	//return
 	fmt.Printf("Test: many partitions ...\n")
 	GenericTest(t, "manypartitions", 1, false, false, true, -1)
 }
 
 func TestManyPartitionsManyClients(t *testing.T) {
-	return
+	//return
 	fmt.Printf("Test: many partitions, many clients ...\n")
 	GenericTest(t, "manypartitionsclnts", 5, false, false, true, -1)
 }
 
 func TestPersistOneClient(t *testing.T) {
-	return
+	//return
 	fmt.Printf("Test: persistence with one client ...\n")
 	GenericTest(t, "persistone", 1, false, true, false, -1)
 }
 
 func TestPersistConcurrent(t *testing.T) {
-	return
+	//return
 	fmt.Printf("Test: persistence with concurrent clients ...\n")
 	GenericTest(t, "persistconcur", 5, false, true, false, -1)
 }
 
 func TestPersistConcurrentUnreliable(t *testing.T) {
-	return
+//	return
 	fmt.Printf("Test: persistence with concurrent clients, unreliable ...\n")
 	GenericTest(t, "persistconcurunreliable", 5, true, true, false, -1)
 }
 
 func TestPersistPartition(t *testing.T) {
-	return
+//	return
 	fmt.Printf("Test: persistence with concurrent clients and repartitioning servers...\n")
 	GenericTest(t, "persistpart", 5, false, true, true, -1)
 }
 
 func TestPersistPartitionUnreliable(t *testing.T) {
-	return
+//	return
 	fmt.Printf("Test: persistence with concurrent clients and repartitioning servers, unreliable...\n")
 	GenericTest(t, "persistpartunreliable", 5, true, true, true, -1)
 }
@@ -413,7 +413,7 @@ func TestPersistPartitionUnreliable(t *testing.T) {
 // even if minority doesn't respond.
 //
 func TestSnapshotRPC(t *testing.T) {
-	return
+	//return
 	const nservers = 3
 	maxraftstate := 1000
 	cfg := make_config(t, "snapshotrpc", nservers, false, maxraftstate)
@@ -468,23 +468,25 @@ func TestSnapshotRPC(t *testing.T) {
 }
 
 func TestSnapshotRecover(t *testing.T) {
-	return
+//	return
 	fmt.Printf("Test: persistence with one client and snapshots ...\n")
 	GenericTest(t, "snapshot", 1, false, true, false, 1000)
 }
 
 func TestSnapshotRecoverManyClients(t *testing.T) {
-	return
+//	return
 	fmt.Printf("Test: persistence with several clients and snapshots ...\n")
 	GenericTest(t, "snapshotunreliable", 20, false, true, false, 1000)
 }
 
 func TestSnapshotUnreliable(t *testing.T) {
+//	return
 	fmt.Printf("Test: persistence with several clients, snapshots, unreliable ...\n")
 	GenericTest(t, "snapshotunreliable", 5, true, false, false, 1000)
 }
 
 func TestSnapshotUnreliableRecover(t *testing.T) {
+	//return
 	fmt.Printf("Test: persistence with several clients, failures, and snapshots, unreliable ...\n")
 	GenericTest(t, "snapshotunreliablecrash", 5, true, true, false, 1000)
 }

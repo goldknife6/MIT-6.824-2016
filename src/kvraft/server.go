@@ -157,7 +157,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.db = make(map[string]string)
 	kv.ack = make(map[int64]int)
 	kv.result = make(map[int]chan Op)
-	kv.applyCh = make(chan raft.ApplyMsg)
+	kv.applyCh = make(chan raft.ApplyMsg,100)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 	go func() {
