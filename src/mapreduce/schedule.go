@@ -36,7 +36,6 @@ func (mr *Master) schedule(phase jobPhase) {  //表示job阶段, 值为 "Map" �
 		wg.Add(1)  // 增加WaitGroup的计数
 		go func(taskNum int, nios int, phase jobPhase) {
 			debug("DEBUG: current taskNum: %v, nios: %v, phase: %v\n", taskNum, nios, phase)
-			defer wg.Done()  // 当整个goroutine完成后, 减少引用计数
 			for  {
 				worker := <-mr.registerChannel  // 获取工作rpc服务器, worker == address
 				debug("DEBUG: current worker port: %v\n", worker)
@@ -49,11 +48,9 @@ func (mr *Master) schedule(phase jobPhase) {  //表示job阶段, 值为 "Map" �
 				args.NumOtherPhase = nios
 				ok := call(worker, "Worker.DoTask", &args, new(struct{}))
 				if ok {
-					go func() {
-						//doneChannel <- taskNum
-						mr.registerChannel <- worker // 该rpc服务器完成任务, 则重新放入registerChannel
-					}()
-					break  // break, 很重要, 否则一个任务会被执行多次
+					wg.Done()
+					mr.registerChannel <- worker
+					break
 				}  // else 表示失败, 使用新的worker 则会进入下一次for循环重试
 			}
 		}(i, nios, phase)
