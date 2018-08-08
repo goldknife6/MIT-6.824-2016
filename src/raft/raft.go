@@ -584,6 +584,7 @@ func (rf *Raft) boatcastAppendEntries() {
 		}
 		if 2*num > len(rf.peers) {
 			N = i
+			break
 		}
 	}
 	if N != rf.commitIndex {
