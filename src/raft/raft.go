@@ -197,7 +197,6 @@ type AppendEntriesReply struct {
 	// Your data here.
 	Term int
 	Success bool
-	NextIndex int
 }
 
 //
@@ -255,7 +254,6 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 	reply.Success = false
 	if args.Term < rf.currentTerm {
 		reply.Term = rf.currentTerm
-		reply.NextIndex = rf.getLastIndex() + 1
 	//	fmt.Printf("%v currentTerm: %v rejected %v:%v\n",rf.me,rf.currentTerm,args.LeaderId,args.Term)
 		return
 	}
@@ -269,7 +267,6 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 	reply.Term = args.Term
 
 	if args.PrevLogIndex > rf.getLastIndex() {
-		reply.NextIndex = rf.getLastIndex() + 1
 		return
 	}
 
@@ -280,11 +277,9 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 		if args.PrevLogTerm != term {
 			for i := args.PrevLogIndex - 1 ; i >= baseIndex; i-- {
 				if rf.log[i-baseIndex].LogTerm != term {
-					reply.NextIndex = i + 1
-					break
+					return
 				}
 			}
-			return
 		}
 	}
 	/*else {
@@ -307,7 +302,6 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 		rf.log = rf.log[: args.PrevLogIndex+1-baseIndex]
 		rf.log = append(rf.log, args.Entries...)
 		reply.Success = true
-		reply.NextIndex = rf.getLastIndex() + 1
 	}
 	//println(rf.me,rf.getLastIndex(),reply.NextIndex,rf.log)
 	if args.LeaderCommit > rf.commitIndex {
@@ -395,7 +389,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 				rf.matchIndex[server] = rf.nextIndex[server] - 1
 			}
 		} else {
-			rf.nextIndex[server] = reply.NextIndex
+			rf.nextIndex[server] = rf.nextIndex[server] - 1
 		}
 	}
 	return ok
